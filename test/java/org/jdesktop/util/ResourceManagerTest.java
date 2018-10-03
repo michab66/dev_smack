@@ -3,7 +3,8 @@ package org.jdesktop.util;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import org.jdesktop.util.ResourceManager.Resource;
+import javax.annotation.Resource;
+
 import org.junit.Before;
 import org.junit.Test;
 

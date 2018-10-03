@@ -1,5 +1,4 @@
 org.jdesktop.util.converters.StringStringConverter
-org.jdesktop.util.converters.StringStringBuilderConverter
 org.jdesktop.util.converters.StringArrayRc
 
 org.jdesktop.util.converters.UrlStringConverter

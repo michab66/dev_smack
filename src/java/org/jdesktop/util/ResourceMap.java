@@ -8,22 +8,17 @@
 package org.jdesktop.util;
 
 import java.util.HashMap;
-import java.util.Map;
+import java.util.Locale;
+import java.util.MissingResourceException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ResourceBundle;
-
-import org.jdesktop.smack.util.ResourceUtils;
-
+import java.util.ResourceBundle.Control;
 
 /**
  * A map holding all resources defined in the resources for
  * the passed class.  Resources for a class foo.bar.Elk are
  * defined in the property file foo.bar.resources.Elk.
- * <p>
- * A property named "color" in the above resource file is found
- * by the key 'color' and the key 'Elk.color'.
- * </p>
  *
  * @version $Rev$
  * @author Michael Binz
@@ -39,59 +34,42 @@ public class ResourceMap extends HashMap<String, String>
 
     public ResourceMap( Class<?> cl )
     {
-        _class =
-                Objects.requireNonNull( cl );
-        String simpleName =
-                _class.getSimpleName();
+        _class = Objects.requireNonNull( cl );
 
-        ResourceBundle crb =
-                ResourceUtils.getClassResources( cl );
-
-        if ( crb == null )
-        {
-            _bundleName = StringUtil.EMPTY_STRING;
-            _resourcePath = StringUtil.EMPTY_STRING;
-            return;
-        }
+        String pack =
+                cl.getPackage().getName();
+        if ( StringUtil.isEmpty( pack ) )
+            pack = StringUtil.EMPTY_STRING;
 
         _bundleName =
-                crb.getBaseBundleName();
-
-        assert _bundleName.endsWith( simpleName );
+                String.format( "%s.resources.%s",
+                        pack,
+                        _class.getSimpleName() );
 
         _resourcePath =
-                _bundleName.substring(
-                        0, _bundleName.length() -
-                        simpleName.length() ).replace( '.', '/' );
+                (pack + ".resources.").replace( '.', '/' );
 
-        Map<String, String> bundle =
-                ResourceUtils.preprocessResourceBundle(
-                        crb );
+        ClassLoader cldr = cl.getClassLoader();
+        if ( cldr == null )
+            cldr = Thread.currentThread().getContextClassLoader();
 
-        String classPrefix =
-                simpleName + ".";
-
-        for ( String ck : bundle.keySet() )
+        try
         {
-            String value =
-                    bundle.get( ck );
+            ResourceBundle bundle =
+                    ResourceBundle.getBundle(
+                            _bundleName,
+                            Locale.getDefault(),
+                            cldr,
+                            Control.getControl(
+                                    Control.FORMAT_PROPERTIES ) );
 
-            if ( ck.equals( classPrefix ) )
-                throw new AssertionError( "Invalid property name: " + classPrefix );
-
-            put( ck, value );
-            if ( ck.startsWith( classPrefix ) )
-            {
-                put(
-                        ck.substring( classPrefix.length() ),
-                        value );
-            }
-            else
-            {
-                put(
-                        classPrefix + ck,
-                        value );
-            }
+            for ( String ck : bundle.keySet() )
+                put( ck, bundle.getString( ck ) );
+        }
+        catch ( MissingResourceException e )
+        {
+            // If we found no bundle we simply stay empty, no panic.
+            return;
         }
     }
 
@@ -125,9 +103,7 @@ public class ResourceMap extends HashMap<String, String>
      * @return A resource dir, slash-separated, with a trailing slash.
      * For class org.jdesktop.Test the resource dir
      * is org/jdesktop/resources/. Used for the resolution of
-     * secondary resources like icons. If no underlying resource
-     * bundle existed, then this is null.
-     *
+     * secondary resources like icons.
      */
     public String getResourceDir()
     {

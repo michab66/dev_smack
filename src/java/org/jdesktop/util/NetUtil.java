@@ -7,17 +7,12 @@
  */
 package org.jdesktop.util;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.logging.Logger;
 
 /**
  * Net related utility classes.
@@ -27,9 +22,6 @@ import java.util.logging.Logger;
  */
 public class NetUtil
 {
-    private static final Logger LOG =
-            Logger.getLogger( NetUtil.class.getName() );
-
     /**
      * Get the name of the local host.
      *
@@ -157,44 +149,6 @@ public class NetUtil
         catch (IOException e)
         {
             return false;
-        }
-    }
-
-    private static URL makeIndirectionUrlImpl( URL src ) throws IOException
-    {
-        Path tempFile = Files.createTempFile( "mmt", ".tmp" );
-
-        LOG.info( "Created temporary file: " + tempFile );
-
-        try ( InputStream is = src.openStream() )
-        {
-            Files.copy( is, tempFile, StandardCopyOption.REPLACE_EXISTING );
-        }
-
-        URL result = tempFile.toUri().toURL();
-
-        LOG.info( "Returning URL: " + result.toExternalForm() );
-
-        return result;
-    }
-
-    /**
-     * Converts the passed url into an url pointing into the local file
-     * system.  This is done by copying the content of the input url into
-     * the local file system.
-     *
-     * @param src The source URL.
-     * @return A local file system URL in external form.
-     */
-    public static String makeIndirectionUrl( URL src )
-    {
-        try
-        {
-            return makeIndirectionUrlImpl( src ).toExternalForm();
-        }
-        catch ( Exception e )
-        {
-            throw new AssertionError( e.getMessage() , e );
         }
     }
 

@@ -7,15 +7,10 @@
  */
 package org.jdesktop.util;
 
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
 import java.beans.BeanInfo;
 import java.beans.IntrospectionException;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -30,10 +25,11 @@ import java.util.WeakHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.annotation.Resource;
+
 import javafx.util.Pair;
 
 /**
- * A ResourceManager.
  *
  * @version $Rev$
  * @author Michael Binz
@@ -42,46 +38,6 @@ public class ResourceManager
 {
     private final static Logger LOG =
             Logger.getLogger( ResourceManager.class.getName() );
-
-    /**
-     * The Resource annotation marks a resource that is needed
-     * by the application.  This annotation may be applied to an
-     * application component field. <p>
-     */
-    @Target({FIELD})
-    @Retention(RUNTIME)
-    public @interface Resource {
-        /**
-         * The name of the resource.  For field annotations,
-         * the default is the field name.
-         */
-        String name() default "";
-
-        /**
-         * A product specific name that this resource should be mapped to.
-         * The name of this resource, as defined by the <code>name</code>
-         * element or defaulted, is a name that is local to the application
-         * component using the resource.  (It's a name in the JNDI
-         * <code>java:comp/env</code> namespace.)  Many application servers
-         * provide a way to map these local names to names of resources
-         * known to the application server.  This mapped name is often a
-         * <i>global</i> JNDI name, but may be a name of any form. <p>
-         *
-         * Application servers are not required to support any particular
-         * form or type of mapped name, nor the ability to use mapped names.
-         * The mapped name is product-dependent and often installation-dependent.
-         * No use of a mapped name is portable.
-         */
-        String mappedName() default "";
-
-        /**
-         * Description of this resource.  The description is expected
-         * to be in the default language of the system on which the
-         * application is deployed.  The description can be presented
-         * to the Deployer to help in choosing the correct resource.
-         */
-        String description() default "";
-    }
 
     private final ResourceConverterRegistry _converters =
             new ResourceConverterRegistry();
@@ -92,9 +48,6 @@ public class ResourceManager
     private WeakMapWithProducer<Class<?>, ResourceMap> _resourceMapCache =
             new WeakMapWithProducer<>( ResourceMap::new );
 
-    /**
-     * Create an instance.  Commonly done via the ServiceManager.
-     */
     public ResourceManager()
     {
         for ( ResourceConverter c : ServiceLoader.load( ResourceConverter.class ) )
@@ -141,7 +94,7 @@ public class ResourceManager
         // Add the dot.
         prefix += ".";
 
-        Set<String> definedKeys = new HashSet<>();
+        Set<String> definedKeys = new HashSet<String>();
         for ( String c : map.keySet() )
             if ( c.startsWith( prefix ) )
                 definedKeys.add( c );
@@ -244,7 +197,7 @@ public class ResourceManager
             String name = r.name();
 
             if ( StringUtil.isEmpty( name ) )
-                name = String.format( "%s.%s", cIass.getSimpleName(), f.getName() );
+                name = f.getName();
 
             String value = rb.get( name );
 

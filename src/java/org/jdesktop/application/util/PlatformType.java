@@ -5,9 +5,6 @@
 
 package org.jdesktop.application.util;
 
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-
 /**
  *
  * @author Illya Yalovyy
@@ -45,37 +42,5 @@ public enum PlatformType {
     @Override
     public String toString() {
         return name;
-    }
-
-    private static PlatformType activePlatformType;
-
-    /**
-     * Determines a platform type the application is running on.
-     * @return current platform type
-     */
-    public static PlatformType getPlatform() {
-        if (activePlatformType != null)
-            return activePlatformType;
-        activePlatformType = PlatformType.DEFAULT;
-        PrivilegedAction<String> doGetOSName = new PrivilegedAction<String>() {
-
-            @Override
-            public String run() {
-                return System.getProperty("os.name");
-            }
-        };
-
-        String osName = AccessController.doPrivileged(doGetOSName);
-        if (osName != null) {
-            osName = osName.toLowerCase();
-            for (PlatformType platformType : PlatformType.values()) {
-                for (String pattern : platformType.getPatterns()) {
-                    if (osName.startsWith(pattern)) {
-                        return activePlatformType = platformType;
-                    }
-                }
-            }
-        }
-        return activePlatformType = PlatformType.DEFAULT;
     }
 }

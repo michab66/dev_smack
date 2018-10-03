@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: ReflectionUtil.java 252 2016-10-03 11:32:23Z michab66 $
  *
  * Common.
  *
