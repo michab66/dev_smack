@@ -1,4 +1,4 @@
-/* $Id: PropertyLinkInverseBoolean.java 1427 2016-02-12 18:53:03Z Michael $
+/* $Id$
  *
  * Released under Gnu Public License
  * Copyright © 2011 Michael G. Binz
@@ -8,7 +8,8 @@ package org.jdesktop.beans;
 
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.util.Objects;
+
+import org.jdesktop.smack.util.JavaUtils;
 
 
 
@@ -17,7 +18,7 @@ import java.util.Objects;
  * Links a bound property on a source object to a bound property on
  * a target object.
  *
- * @version $Rev: 1427 $
+ * @version $Rev$
  * @author Michael Binz
  */
 public class PropertyLinkInverseBoolean
@@ -118,7 +119,7 @@ public class PropertyLinkInverseBoolean
 
         // If the new value and the value on the target are already the
         // same we ignore the call.
-        if ( Objects.equals( _targetProperty.get(), newValue ) )
+        if ( JavaUtils.equals( _targetProperty.get(), newValue ) )
             return;
 
         // Set the value.
@@ -128,6 +129,12 @@ public class PropertyLinkInverseBoolean
     /**
      * A listener for source changes.
      */
-    private final PropertyChangeListener _listener =
-            ( PropertyChangeEvent evt ) -> handleChange( evt );
+    private final PropertyChangeListener _listener = new PropertyChangeListener()
+    {
+        @Override
+        public void propertyChange( PropertyChangeEvent evt )
+        {
+            handleChange( evt );
+        }
+    };
 }

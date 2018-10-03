@@ -7,10 +7,27 @@ package org.jdesktop.application;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Container;
+import java.awt.Dimension;
+import java.awt.Event;
 import java.awt.Font;
+import java.awt.Image;
+import java.awt.Insets;
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.Toolkit;
+import java.awt.geom.Point2D;
+import java.beans.BeanInfo;
+import java.beans.IntrospectionException;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
 import java.io.File;
 import java.io.FileReader;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -23,27 +40,21 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
+import javax.swing.AbstractButton;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
+import javax.swing.JLabel;
+import javax.swing.JMenu;
 import javax.swing.KeyStroke;
+import javax.swing.border.EmptyBorder;
 
 import org.jdesktop.application.ResourceConverter.ResourceConverterException;
-import org.jdesktop.application.converters.ColorStringConverter;
-import org.jdesktop.application.converters.DimensionStringConverter;
-import org.jdesktop.application.converters.EmptyBorderStringConverter;
-import org.jdesktop.application.converters.FontStringConverter;
-import org.jdesktop.application.converters.IconStringConverter;
-import org.jdesktop.application.converters.ImageStringConverter;
-import org.jdesktop.application.converters.InsetsStringConverter;
-import org.jdesktop.application.converters.KeyStrokeStringConverter;
-import org.jdesktop.application.converters.Point2dStringConverter;
-import org.jdesktop.application.converters.PointStringConverter;
-import org.jdesktop.application.converters.RectangleStringConverter;
 import org.jdesktop.application.util.PlatformType;
+import org.jdesktop.smack.util.ReflectionUtils;
 import org.jdesktop.smack.util.ResourceUtils;
-import org.jdesktop.util.ReflectionUtil;
-import org.jdesktop.util.StringUtil;
+import org.jdesktop.smack.util.StringUtils;
 
 /**
  * A read-only encapsulation of one or more ResourceBundles that adds
@@ -150,7 +161,7 @@ public class ResourceMap
      * @see #getResourcesDir
      * @see #getBundleNames
      */
-    public ResourceMap( Locale locale, ResourceMap parent, ClassLoader classLoader, List<String> bundleNames) {
+    ResourceMap( Locale locale, ResourceMap parent, ClassLoader classLoader, List<String> bundleNames) {
         if (classLoader == null) {
             throw new IllegalArgumentException("null ClassLoader");
         }
@@ -158,7 +169,7 @@ public class ResourceMap
             throw new IllegalArgumentException("no bundle specified");
         }
         for (String bn : bundleNames) {
-            if ( ! StringUtil.hasContent( bn )) {
+            if ( ! StringUtils.hasContent( bn )) {
                 throw new IllegalArgumentException("invalid bundleName: \"" + bn + "\"");
             }
         }
@@ -183,7 +194,7 @@ public class ResourceMap
      */
     private String bundlePackageName(String bundleName) {
         int i = bundleName.lastIndexOf(".");
-        return (i == -1) ? StringUtil.EMPTY_STRING : bundleName.substring(0, i);
+        return (i == -1) ? StringUtils.EMPTY_STRING : bundleName.substring(0, i);
     }
 
     /**
@@ -213,7 +224,7 @@ public class ResourceMap
      *
      * @return the classLoader constructor argument
      */
-    public ClassLoader getClassLoader() {
+    private ClassLoader getClassLoader() {
         return _classLoader;
     }
 
@@ -229,7 +240,7 @@ public class ResourceMap
      *
      * @return the the resources directory for this ResourceMap
      */
-    public String getResourcesDir() {
+    private String getResourcesDir() {
         return _resourcesDir;
     }
 
@@ -309,7 +320,7 @@ public class ResourceMap
      */
     private void checkNullKey(String key)
     {
-        if ( StringUtil.isEmpty( key ) )
+        if ( StringUtils.isEmpty( key ) )
             throw new IllegalArgumentException("empty key");
     }
 
@@ -336,7 +347,7 @@ public class ResourceMap
      * @return all of the keys in this ResourceMap and its parent
      * @see #getParent
      */
-    Set<String> keySet() {
+    private Set<String> keySet() {
         return getBundlesMapKeys();
     }
 
@@ -578,14 +589,14 @@ public class ResourceMap
      * @throws LookupException if an error occurs during lookup or string conversion
      * @throws IllegalArgumentException if <tt>key</tt> or <tt>type</tt> are null
      */
-    public Object getObject(String key, Class<?> type)
+    private Object getObject(String key, Class<?> type)
     {
         checkNullKey(key);
         if (type == null) {
             throw new IllegalArgumentException("null type");
         }
 
-        type = ReflectionUtil.normalizePrimitives( type );
+        type = ReflectionUtils.normalizePrimitives( type );
 
         if ( ! containsResourceKey( key ) )
         {
@@ -975,142 +986,193 @@ public class ResourceMap
         }
     }
 
-//    /**
-//     *
-//     * @param component
-//     * @param pd
-//     * @param key
-//     */
-//    private void injectComponentProperty(Component component, PropertyDescriptor pd, String key) {
-//        Method setter = pd.getWriteMethod();
-//        Class<?> type = pd.getPropertyType();
-//        if ((setter != null) && (type != null) && containsKey(key)) {
-//            Object value = getObject(key, type);
-//            String propertyName = pd.getName();
-//            try {
-//                // Note: this could be generalized, we could delegate
-//                // to a component property injector.
-//                if ("text".equals(propertyName) && (component instanceof AbstractButton)) {
-//                    MnemonicText.configure(component, (String) value);
-//                } else if ("text".equals(propertyName) && (component instanceof JLabel)) {
-//                    MnemonicText.configure(component, (String) value);
-//                } else {
-//                    setter.invoke(component, value);
-//                }
-//            } catch (Exception e) {
-//                String pdn = pd.getName();
-//                String msg = "property setter failed";
-//                RuntimeException re = new PropertyInjectionException(msg, key, component, pdn);
-//                re.initCause(e);
-//                throw re;
-//            }
-//        } else if (type != null) {
-//            String pdn = pd.getName();
-//            String msg = "no value specified for resource";
-//            throw new PropertyInjectionException(msg, key, component, pdn);
-//        } else if (setter == null) {
-//            String pdn = pd.getName();
-//            String msg = "can't set read-only property";
-//            throw new PropertyInjectionException(msg, key, component, pdn);
-//        }
-//    }
-//
-//    /**
-//     *
-//     * @param componentName
-//     * @param component
-//     */
-//    private void injectComponentProperties(String componentName, Component component) {
-//        if ( componentName == null )
-//            return;
-//
-//        /* Optimization: punt early if componentName doesn't
-//         * appear in any componentName.propertyName resource keys
-//         */
-//        boolean matchingResourceFound = false;
-//        for (String key : keySet()) {
-//            int i = key.lastIndexOf(".");
-//            if ((i != -1) && componentName.equals(key.substring(0, i))) {
-//                matchingResourceFound = true;
-//                break;
-//            }
-//        }
-//        if (!matchingResourceFound) {
-//            return;
-//        }
-//        BeanInfo beanInfo;
-//        try {
-//            beanInfo = Introspector.getBeanInfo(component.getClass());
-//        } catch (IntrospectionException e) {
-//            String msg = "introspection failed";
-//            RuntimeException re = new PropertyInjectionException(msg, null, component, null);
-//            re.initCause(e);
-//            throw re;
-//        }
-//        PropertyDescriptor[] pds = beanInfo.getPropertyDescriptors();
-//        if ((pds != null) && (pds.length > 0)) {
-//            for (String key : keySet()) {
-//                int i = key.lastIndexOf(".");
-//                String keyComponentName = (i == -1) ? null : key.substring(0, i);
-//                if (componentName.equals(keyComponentName)) {
-//                    if ((i + 1) == key.length()) {
-//                        /* key has no property name suffix, e.g. "myComponentName."
-//                         * This is probably a mistake.
-//                         */
-//                        String msg = "component resource lacks property name suffix";
-//                        LOG.warning(msg);
-//                        break;
-//                    }
-//                    String propertyName = key.substring(i + 1);
-//                    boolean matchingPropertyFound = false;
-//                    for (PropertyDescriptor pd : pds) {
-//                        if (pd.getName().equals(propertyName)) {
-//                            injectComponentProperty(component, pd, key);
-//                            matchingPropertyFound = true;
-//                            break;
-//                        }
-//                    }
-//                    if (!matchingPropertyFound) {
-//                        String msg = String.format(
-//                                "[resource %s] component named %s doesn't have a property named %s",
-//                                key, componentName, propertyName);
-//                        LOG.warning(msg);
-//                    }
-//                }
-//            }
-//        }
-//    }
-//
-///
-//    /**
-//     * Applies {@link #injectComponent} to each Component in the
-//     * hierarchy with root <tt>root</tt>.
-//     *
-//     * @param root the root of the component hierarchy
-//     * @throws PropertyInjectionException if a property specified by a resource can't be set
-//     * @throws IllegalArgumentException if target is null
-//     * @see #injectComponent
-//     */
-//    public void injectComponents(Component root) {
-//        injectComponent(root);
-//        if (root instanceof JMenu) {
-//            /* Warning: we're bypassing the popupMenu here because
-//             * JMenu#getPopupMenu creates it; doesn't seem right
-//             * to do so at injection time.  Unfortunately, this
-//             * means that attempts to inject the popup menu's
-//             * "label" property will fail.
-//             */
-//            JMenu menu = (JMenu) root;
-//            for (Component child : menu.getMenuComponents()) {
-//                injectComponents(child);
-//            }
-//        } else if (root instanceof Container) {
-//            Container container = (Container) root;
-//            for (Component child : container.getComponents()) {
-//                injectComponents(child);
-//            }
-//        }
-//    }
+    /**
+     *
+     * @param component
+     * @param pd
+     * @param key
+     */
+    private void injectComponentProperty(Component component, PropertyDescriptor pd, String key) {
+        Method setter = pd.getWriteMethod();
+        Class<?> type = pd.getPropertyType();
+        if ((setter != null) && (type != null) && containsKey(key)) {
+            Object value = getObject(key, type);
+            String propertyName = pd.getName();
+            try {
+                // Note: this could be generalized, we could delegate
+                // to a component property injector.
+                if ("text".equals(propertyName) && (component instanceof AbstractButton)) {
+                    MnemonicText.configure(component, (String) value);
+                } else if ("text".equals(propertyName) && (component instanceof JLabel)) {
+                    MnemonicText.configure(component, (String) value);
+                } else {
+                    setter.invoke(component, value);
+                }
+            } catch (Exception e) {
+                String pdn = pd.getName();
+                String msg = "property setter failed";
+                RuntimeException re = new PropertyInjectionException(msg, key, component, pdn);
+                re.initCause(e);
+                throw re;
+            }
+        } else if (type != null) {
+            String pdn = pd.getName();
+            String msg = "no value specified for resource";
+            throw new PropertyInjectionException(msg, key, component, pdn);
+        } else if (setter == null) {
+            String pdn = pd.getName();
+            String msg = "can't set read-only property";
+            throw new PropertyInjectionException(msg, key, component, pdn);
+        }
+    }
+
+    /**
+     *
+     * @param componentName
+     * @param component
+     */
+    private void injectComponentProperties(String componentName, Component component) {
+        if ( componentName == null )
+            return;
+
+        /* Optimization: punt early if componentName doesn't
+         * appear in any componentName.propertyName resource keys
+         */
+        boolean matchingResourceFound = false;
+        for (String key : keySet()) {
+            int i = key.lastIndexOf(".");
+            if ((i != -1) && componentName.equals(key.substring(0, i))) {
+                matchingResourceFound = true;
+                break;
+            }
+        }
+        if (!matchingResourceFound) {
+            return;
+        }
+        BeanInfo beanInfo;
+        try {
+            beanInfo = Introspector.getBeanInfo(component.getClass());
+        } catch (IntrospectionException e) {
+            String msg = "introspection failed";
+            RuntimeException re = new PropertyInjectionException(msg, null, component, null);
+            re.initCause(e);
+            throw re;
+        }
+        PropertyDescriptor[] pds = beanInfo.getPropertyDescriptors();
+        if ((pds != null) && (pds.length > 0)) {
+            for (String key : keySet()) {
+                int i = key.lastIndexOf(".");
+                String keyComponentName = (i == -1) ? null : key.substring(0, i);
+                if (componentName.equals(keyComponentName)) {
+                    if ((i + 1) == key.length()) {
+                        /* key has no property name suffix, e.g. "myComponentName."
+                         * This is probably a mistake.
+                         */
+                        String msg = "component resource lacks property name suffix";
+                        LOG.warning(msg);
+                        break;
+                    }
+                    String propertyName = key.substring(i + 1);
+                    boolean matchingPropertyFound = false;
+                    for (PropertyDescriptor pd : pds) {
+                        if (pd.getName().equals(propertyName)) {
+                            injectComponentProperty(component, pd, key);
+                            matchingPropertyFound = true;
+                            break;
+                        }
+                    }
+                    if (!matchingPropertyFound) {
+                        String msg = String.format(
+                                "[resource %s] component named %s doesn't have a property named %s",
+                                key, componentName, propertyName);
+                        LOG.warning(msg);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Set each property in <tt>target</tt> to the value of
+     * the resource named <tt><i>componentName</i>.propertyName</tt>,
+     * where  <tt><i>componentName</i></tt> is the value of the
+     * target component's name property, i.e. the value of
+     * <tt>target.getName()</tt>.  The type of the resource must
+     * match the type of the corresponding property.  Properties
+     * that aren't defined by a resource aren't set.
+     * <p>
+     * For example, given a button configured like this:
+     * <pre>
+     * myButton = new JButton();
+     * myButton.setName("myButton");
+     * </pre>
+     * And a ResourceBundle properties file with the following
+     * resources:
+     * <pre>
+     * myButton.text = Hello World
+     * myButton.foreground = 0, 0, 0
+     * myButton.preferredSize = 256, 256
+     * </pre>
+     * Then <tt>injectComponent(myButton)</tt> would initialize
+     * myButton's text, foreground, and preferredSize properties
+     * to <tt>Hello World</tt>, <tt>new Color(0,0,0)</tt>, and
+     * <tt>new Dimension(256,256)</tt> respectively.
+     * <p>
+     * This method calls {@link #getObject} to look up resources
+     * and it uses {@link Introspector#getBeanInfo} to find
+     * the target component's properties.
+     * <p>
+     * If target is null an IllegalArgumentException is thrown.  If a
+     * resource is found that matches the target component's name but
+     * the corresponding property can't be set, an (unchecked) {@link
+     * PropertyInjectionException} is thrown.
+     *
+     *
+     *
+     * @param target the Component to inject
+     * @see #injectComponents
+     * @see #getObject
+     * @see ResourceConverter#forType
+     * @throws LookupException if an error occurs during lookup or string conversion
+     * @throws PropertyInjectionException if a property specified by a resource can't be set
+     * @throws IllegalArgumentException if target is null
+     */
+    public void injectComponent(Component target) {
+        if (target == null) {
+            throw new IllegalArgumentException("null target");
+        }
+        injectComponentProperties(target.getName(), target);
+    }
+
+    /**
+     * Applies {@link #injectComponent} to each Component in the
+     * hierarchy with root <tt>root</tt>.
+     *
+     * @param root the root of the component hierarchy
+     * @throws PropertyInjectionException if a property specified by a resource can't be set
+     * @throws IllegalArgumentException if target is null
+     * @see #injectComponent
+     */
+    public void injectComponents(Component root) {
+        injectComponent(root);
+        if (root instanceof JMenu) {
+            /* Warning: we're bypassing the popupMenu here because
+             * JMenu#getPopupMenu creates it; doesn't seem right
+             * to do so at injection time.  Unfortunately, this
+             * means that attempts to inject the popup menu's
+             * "label" property will fail.
+             */
+            JMenu menu = (JMenu) root;
+            for (Component child : menu.getMenuComponents()) {
+                injectComponents(child);
+            }
+        } else if (root instanceof Container) {
+            Container container = (Container) root;
+            for (Component child : container.getComponents()) {
+                injectComponents(child);
+            }
+        }
+    }
 
     /**
      * Unchecked exception thrown by {@link #injectFields} when
@@ -1168,184 +1230,183 @@ public class ResourceMap
         }
     }
 
-//    /**
-//     * Inject a single field.
-//     *
-//     * @param field The field to inject.
-//     * @param target The target object instance.
-//     * @param key The resource key.
-//     */
-//    private void injectField( Field field, Object target, String key )
-//    {
-//        if (!field.isAccessible())
-//            field.setAccessible(true);
-//
-//        Class<?> type = field.getType();
-//
-//        if ( Component.class.isAssignableFrom( type ) )
-//        {
-//            Component fieldValue = null;
-//            try
-//            {
-//                fieldValue = (Component)field.get( target );
-//            }
-//            catch ( Exception e )
-//            {
-//                throw new InjectFieldException("unable to get field's value", field, target, key, e);
-//            }
-//
-//            if ( fieldValue == null )
-//                throw new InjectFieldException( "null component field marked with @Resource", field, target, key, null );
-//            // TODO if null try to create instance using deflt ctor?
-//
-//            injectComponentProperties( key, fieldValue );
-//        }
-//        else
-//        {
-//            Object value = getObject(key, type);
-//
-//            if ( value == null )
-//            {
-//                LOG.warning( "No value for @Resource(" + key + ")" );
-//                return;
-//            }
-//
-//            try {
-//                field.set(target, value);
-//            }
-//            catch (Exception e) {
-//                throw new InjectFieldException("unable to set field's value", field, target, key, e);
-//            }
-//        }
-//    }
-//
-//    /**
-//     * Set each field with a <tt>&#064;Resource</tt> annotation in the target object,
-//     * to the value of a resource whose name is the simple name of the target
-//     * class followed by "." followed by the name of the field.  If the
-//     * key <tt>&#064;Resource</tt> parameter is specified, then a resource with that name
-//     * is used instead.  Array valued fields can also be initialized.
-//     * For example:
-//     * <pre>
-//     * class MyClass {
-//     *   &#064;Resource String sOne;
-//     *   &#064;Resource(key="sTwo") String s2;
-//     *   &#064;Resource int[] numbers;
-//     * }
-//     * </pre>
-//     * Given the previous class and the following resource file:
-//     * <pre>
-//     * MyClass.sOne = One
-//     * sTwo = Two
-//     * MyClass.numbers = 10 11
-//     * </pre>
-//     * Then <tt>injectFields(new MyClass())</tt> would initialize the MyClass
-//     * <tt>sOne</tt> field to "One", the <tt>s2</tt> field to "Two", and the
-//     * two elements of the numbers array to 10 and 11.
-//     * <p>
-//     * If <tt>target</tt> is null an IllegalArgumentException is
-//     * thrown.  If an error occurs during resource lookup, then an
-//     * unchecked LookupException is thrown.  If a target field marked
-//     * with <tt>&#064;Resource</tt> can't be set, then an unchecked
-//     * InjectFieldException is thrown.
-//     *
-//     * @param target the object whose fields will be initialized
-//     * @param targetType The type of the target object to inject.
-//     * This is used to explicitly inject super-class resources.
-//     * @throws LookupException if an error occurs during lookup or string conversion
-//     * @throws InjectFieldException if a field can't be set
-//     * @throws IllegalArgumentException if target is null
-//     * @see #getObject
-//     */
-//    public void injectFields(Object target, Class<?> targetType) {
-//        if (target==null)
-//            throw new IllegalArgumentException("null target");
-//        if (targetType.isPrimitive())
-//            throw new IllegalArgumentException("primitive target");
-//        if (targetType.isArray())
-//            throw new IllegalArgumentException("array target");
-//
-//        String keyPrefix = targetType.getSimpleName() + ".";
-//
-//        for ( Pair<Field,Resource> field :
-//            ReflectionUtil.getAnnotatedFields(
-//                    targetType,
-//                    Resource.class ) )
-//        {
-//            String key = field.getValue().mappedName();
-//
-//            if ( ! StringUtils.hasContent( key ) )
-//                key = keyPrefix + field.getKey().getName();
-//
-//            injectField( field.getKey(), target, key );
-//        }
-//    }
-//
-//    /**
-//     * Inject the passed bean's properties from this map. The prefix is
-//     * used to find the configuration keys in the map. Keys in the
-//     * map have to look like prefix.propertyName. The dot is added to
-//     * the prefix.
-//     *
-//     * @param bean The bean whose properties are injected.
-//     * @param prefix The prefix used to filter the map's keys.
-//     */
-//    public void injectProperties( Object bean, String prefix )
-//    {
-//        BeanInfo beanInfo;
-//        try {
-//            beanInfo = Introspector.getBeanInfo(
-//                    bean.getClass() );
-//        } catch (IntrospectionException e) {
-//            throw new IllegalArgumentException( "Introspection failed.", e );
-//        }
-//
-//        // Add the dot.
-//        prefix += ".";
-//
-//        Set<String> definedKeys = new HashSet<String>();
-//        for ( String c : keySet() )
-//            if ( c.startsWith( prefix ) )
-//                definedKeys.add( c );
-//
-//        if ( definedKeys.size() == 0 )
-//            return;
-//
-//        for ( PropertyDescriptor c : beanInfo.getPropertyDescriptors() )
-//        {
-//            Method setter = c.getWriteMethod();
-//
-//            // Skip read-only properties.
-//            if ( setter == null )
-//                continue;
-//
-//            String currentKey = prefix + c.getName();
-//            if ( ! definedKeys.contains( currentKey ) )
-//                continue;
-//
-//            definedKeys.remove( currentKey );
-//
-//            try
-//            {
-//                // This implicitly transforms the key's value.
-//                setter.invoke( bean, get( currentKey, c.getPropertyType() ) );
-//            }
-//            catch ( IllegalAccessException e )
-//            {
-//                throw new RuntimeException( e );
-//            }
-//            catch ( InvocationTargetException e )
-//            {
-//                throw new RuntimeException( e.getCause() );
-//            }
-//
-//            if ( definedKeys.size() == 0 )
-//                return;
-//        }
-//
-//        for ( String c : definedKeys )
-//            LOG.warning( String.format( "Key '%s' defined in map does not match property.", c ) );
-//    }
+    /**
+     * Inject a single field.
+     *
+     * @param field The field to inject.
+     * @param target The target object instance.
+     * @param key The resource key.
+     */
+    private void injectField( Field field, Object target, String key )
+    {
+        if (!field.isAccessible())
+            field.setAccessible(true);
+
+        Class<?> type = field.getType();
+
+        if ( Component.class.isAssignableFrom( type ) )
+        {
+            Component fieldValue = null;
+            try
+            {
+                fieldValue = (Component)field.get( target );
+            }
+            catch ( Exception e )
+            {
+                throw new InjectFieldException("unable to get field's value", field, target, key, e);
+            }
+
+            if ( fieldValue == null )
+                throw new InjectFieldException( "null component field marked with @Resource", field, target, key, null );
+            // TODO if null try to create instance using deflt ctor?
+
+            injectComponentProperties( key, fieldValue );
+        }
+        else
+        {
+            Object value = getObject(key, type);
+
+            if ( value == null )
+            {
+                LOG.warning( "No value for @Resource(" + key + ")" );
+                return;
+            }
+
+            try {
+                field.set(target, value);
+            }
+            catch (Exception e) {
+                throw new InjectFieldException("unable to set field's value", field, target, key, e);
+            }
+        }
+    }
+
+    /**
+     * Set each field with a <tt>&#064;Resource</tt> annotation in the target object,
+     * to the value of a resource whose name is the simple name of the target
+     * class followed by "." followed by the name of the field.  If the
+     * key <tt>&#064;Resource</tt> parameter is specified, then a resource with that name
+     * is used instead.  Array valued fields can also be initialized.
+     * For example:
+     * <pre>
+     * class MyClass {
+     *   &#064;Resource String sOne;
+     *   &#064;Resource(key="sTwo") String s2;
+     *   &#064;Resource int[] numbers;
+     * }
+     * </pre>
+     * Given the previous class and the following resource file:
+     * <pre>
+     * MyClass.sOne = One
+     * sTwo = Two
+     * MyClass.numbers = 10 11
+     * </pre>
+     * Then <tt>injectFields(new MyClass())</tt> would initialize the MyClass
+     * <tt>sOne</tt> field to "One", the <tt>s2</tt> field to "Two", and the
+     * two elements of the numbers array to 10 and 11.
+     * <p>
+     * If <tt>target</tt> is null an IllegalArgumentException is
+     * thrown.  If an error occurs during resource lookup, then an
+     * unchecked LookupException is thrown.  If a target field marked
+     * with <tt>&#064;Resource</tt> can't be set, then an unchecked
+     * InjectFieldException is thrown.
+     *
+     * @param target the object whose fields will be initialized
+     * @param targetType The type of the target object to inject.
+     * This is used to explicitly inject super-class resources.
+     * @throws LookupException if an error occurs during lookup or string conversion
+     * @throws InjectFieldException if a field can't be set
+     * @throws IllegalArgumentException if target is null
+     * @see #getObject
+     */
+    void injectFields(Object target, Class<?> targetType) {
+        if (target==null)
+            throw new IllegalArgumentException("null target");
+        if (targetType.isPrimitive())
+            throw new IllegalArgumentException("primitive target");
+        if (targetType.isArray())
+            throw new IllegalArgumentException("array target");
+
+        String keyPrefix = targetType.getSimpleName() + ".";
+
+        for (Field field : targetType.getDeclaredFields()) {
+            Resource resource = field.getAnnotation(Resource.class);
+            if (resource != null) {
+                String key = resource.key();
+
+                if ( ! StringUtils.hasContent( key, true ) )
+                    key = keyPrefix + field.getName();
+
+                injectField(field, target, key);
+            }
+        }
+    }
+
+    /**
+     * Inject the passed bean's properties from this map. The prefix is
+     * used to find the configuration keys in the map. Keys in the
+     * map have to look like prefix.propertyName. The dot is added to
+     * the prefix.
+     *
+     * @param bean The bean whose properties are injected.
+     * @param prefix The prefix used to filter the map's keys.
+     */
+    public void injectProperties( Object bean, String prefix )
+    {
+        BeanInfo beanInfo;
+        try {
+            beanInfo = Introspector.getBeanInfo(
+                    bean.getClass() );
+        } catch (IntrospectionException e) {
+            throw new IllegalArgumentException( "Introspection failed.", e );
+        }
+
+        // Add the dot.
+        prefix += ".";
+
+        Set<String> definedKeys = new HashSet<String>();
+        for ( String c : keySet() )
+            if ( c.startsWith( prefix ) )
+                definedKeys.add( c );
+
+        if ( definedKeys.size() == 0 )
+            return;
+
+        for ( PropertyDescriptor c : beanInfo.getPropertyDescriptors() )
+        {
+            Method setter = c.getWriteMethod();
+
+            // Skip read-only properties.
+            if ( setter == null )
+                continue;
+
+            String currentKey = prefix + c.getName();
+            if ( ! definedKeys.contains( currentKey ) )
+                continue;
+
+            definedKeys.remove( currentKey );
+
+            try
+            {
+                // This implicitly transforms the key's value.
+                setter.invoke( bean, get( currentKey, c.getPropertyType() ) );
+            }
+            catch ( IllegalAccessException e )
+            {
+                throw new RuntimeException( e );
+            }
+            catch ( InvocationTargetException e )
+            {
+                throw new RuntimeException( e.getCause() );
+            }
+
+            if ( definedKeys.size() == 0 )
+                return;
+        }
+
+        for ( String c : definedKeys )
+            LOG.warning( String.format( "Key '%s' defined in map does not match property.", c ) );
+    }
 
     @Override
     public String toString()
@@ -1353,10 +1414,12 @@ public class ResourceMap
         if ( _bundleNames == null )
             return "null";
 
-        return StringUtil.concatenate( " ", _bundleNames );
+        return StringUtils.concatenate( " ", _bundleNames );
     }
 
-    // TODO use service loader
+    /* Register ResourceConverters that are defined in this class
+     * and documented here.
+     */
     static {
         ResourceConverter[] stringConverters = {
             new ColorStringConverter(),
@@ -1373,6 +1436,300 @@ public class ResourceMap
         };
         for (ResourceConverter sc : stringConverters) {
             ResourceConverter.register(sc);
+        }
+    }
+
+    /**
+     * If path doesn't have a leading "/" then the resourcesDir
+     * is prepended, otherwise the leading "/" is removed.
+     */
+    private static String resourcePath(final String path, ResourceMap resourceMap) {
+        if (path == null) {
+            return null;
+        } else if (path.startsWith("/")) {
+            return (path.length() > 1) ? path.substring(1) : null;
+        } else {
+            return resourceMap.getResourcesDir() + path;
+        }
+    }
+
+    /**
+     *
+     * @param s
+     * @param resourceMap
+     * @return
+     * @throws ResourceConverterException
+     */
+    private static ImageIcon loadImageIcon(String s, ResourceMap resourceMap)
+            throws ResourceConverterException {
+        String rPath = resourcePath(s, resourceMap);
+        if (rPath == null) {
+            String msg = String.format("invalid image/icon path \"%s\"", s);
+            throw new ResourceConverterException(msg, s);
+        }
+        URL url = resourceMap.getClassLoader().getResource(rPath);
+        if (url != null) {
+            return new ImageIcon(url);
+        } else {
+            String msg = String.format("couldn't find Icon resource \"%s\"", s);
+            throw new ResourceConverterException(msg, s);
+        }
+    }
+
+    private static class FontStringConverter extends ResourceConverter {
+
+        FontStringConverter() {
+            super(Font.class);
+        }
+        /* Just delegates to Font.decode.
+         * Typical string is: face-STYLE-size, for example "Arial-PLAIN-12"
+         */
+
+        @Override
+        public Object parseString(String s, ResourceMap ignore) throws ResourceConverterException {
+            return Font.decode(s);
+        }
+    }
+
+    private static class ColorStringConverter extends ResourceConverter {
+
+        ColorStringConverter() {
+            super(Color.class);
+        }
+
+        /**
+         * Parses colors with an alpha channel and comma separated RGB[A] values.
+         * Legal formats for color resources are:
+         * "#RRGGBB",  "#AARRGGBB", "R, G, B", "R, G, B, A"
+         * or the color plain names defined on {@link Color}.
+         * @author Romain Guy
+         */
+        @Override
+        public Object parseString(String s, ResourceMap ignore) throws ResourceConverterException {
+
+            // Implanted michab.
+            {
+                Color result = checkPlainColorName( s );
+                if ( result != null )
+                    return result;
+            }
+            // TODO michab -- check code below for simplification.
+            final Color color;
+
+            if (s.startsWith("#")) {
+                switch (s.length()) {
+                    // RGB/hex color
+                    case 7:
+                        color = Color.decode(s);
+                        break;
+                    // ARGB/hex color
+                    case 9:
+                        int alpha = Integer.decode(s.substring(0, 3));
+                        int rgb = Integer.decode("#" + s.substring(3));
+                        color = new Color(alpha << 24 | rgb, true);
+                        break;
+                    default:
+                        throw new ResourceConverterException("invalid #RRGGBB or #AARRGGBB color string", s);
+                }
+            } else {
+                String[] parts = s.split(",");
+                if (parts.length < 3 || parts.length > 4) {
+                    throw new ResourceConverterException("invalid R, G, B[, A] color string", s);
+                }
+                try {
+                    // with alpha component
+                    if (parts.length == 4) {
+                        int r = Integer.parseInt(parts[0].trim());
+                        int g = Integer.parseInt(parts[1].trim());
+                        int b = Integer.parseInt(parts[2].trim());
+                        int a = Integer.parseInt(parts[3].trim());
+                        color = new Color(r, g, b, a);
+                    } else {
+                        int r = Integer.parseInt(parts[0].trim());
+                        int g = Integer.parseInt(parts[1].trim());
+                        int b = Integer.parseInt(parts[2].trim());
+                        color = new Color(r, g, b);
+                    }
+                } catch (NumberFormatException e) {
+                    throw new ResourceConverterException("invalid R, G, B[, A] color string", s, e);
+                }
+            }
+            return color;
+        }
+
+        private Color checkPlainColorName( String name )
+        {
+            try
+            {
+                Field f = Color.class.getField( name );
+                if ( ! Color.class.equals( f.getType() ) )
+                    return null;
+                if ( ! Modifier.isStatic( f.getModifiers() ) )
+                    return null;
+                return (Color) f.get( null );
+            }
+            catch ( Exception e )
+            {
+                return null;
+            }
+        }
+    }
+
+    private static class IconStringConverter extends ResourceConverter {
+
+        IconStringConverter() {
+            super(Icon.class);
+        }
+
+        @Override
+        public Object parseString(String s, ResourceMap resourceMap) throws ResourceConverterException {
+            return loadImageIcon(s, resourceMap);
+        }
+
+        @Override
+        public boolean supportsType(Class<?> testType) {
+            return testType.equals(Icon.class) || testType.equals(ImageIcon.class);
+        }
+    }
+
+    private static class ImageStringConverter extends ResourceConverter {
+
+        ImageStringConverter() {
+            super(Image.class);
+        }
+
+        @Override
+        public Object parseString(String s, ResourceMap resourceMap) throws ResourceConverterException {
+            return loadImageIcon(s, resourceMap).getImage();
+        }
+    }
+
+    private static class KeyStrokeStringConverter extends ResourceConverter {
+        private static final String KEYWORD_SHORTCUT = "shortcut";
+        private static final String KEYWORD_META = "meta";
+        private static final String KEYWORD_CONTROL = "control";
+
+        private static final String REPLACE = Toolkit.getDefaultToolkit().getMenuShortcutKeyMask() ==
+            Event.META_MASK ? KEYWORD_META : KEYWORD_CONTROL;
+        private static final Pattern PATTERN = Pattern.compile(KEYWORD_SHORTCUT);
+
+        KeyStrokeStringConverter() {
+            super(KeyStroke.class);
+        }
+
+        @Override
+        public Object parseString(String s, ResourceMap ignore) {
+            if (s.contains(KEYWORD_SHORTCUT)) {
+//                int k = Toolkit.getDefaultToolkit().getMenuShortcutKeyMask();
+                s = PATTERN.matcher(s).replaceFirst(REPLACE);
+            }
+            return KeyStroke.getKeyStroke(s);
+        }
+    }
+
+    /* String s is assumed to contain n number substrings separated by
+     * commas.  Return a list of those integers or null if there are too
+     * many, too few, or if a substring can't be parsed.  The format
+     * of the numbers is specified by Double.valueOf().
+     */
+    private static List<Double> parseDoubles(String s, int n, String errorMsg) throws ResourceConverterException {
+        String[] doubleStrings = s.split(",", n + 1);
+        if (doubleStrings.length != n) {
+            throw new ResourceConverterException(errorMsg, s);
+        } else {
+            List<Double> doubles = new ArrayList<Double>(n);
+            for (String doubleString : doubleStrings) {
+                try {
+                    doubles.add(Double.valueOf(doubleString));
+                } catch (NumberFormatException e) {
+                    throw new ResourceConverterException(errorMsg, s, e);
+                }
+            }
+            return doubles;
+        }
+    }
+
+    private static class DimensionStringConverter extends ResourceConverter {
+
+        DimensionStringConverter() {
+            super(Dimension.class);
+        }
+
+        @Override
+        public Object parseString(String s, ResourceMap ignore) throws ResourceConverterException {
+            List<Double> xy = parseDoubles(s, 2, "invalid x,y Dimension string");
+            Dimension d = new Dimension();
+            d.setSize(xy.get(0), xy.get(1));
+            return d;
+        }
+    }
+
+    private static class PointStringConverter extends ResourceConverter {
+
+        PointStringConverter() {
+            super(Point.class);
+        }
+
+        @Override
+        public Object parseString(String s, ResourceMap ignore) throws ResourceConverterException {
+            List<Double> xy = parseDoubles(s, 2, "invalid x,y Point string");
+            Point p = new Point();
+            p.setLocation(xy.get(0), xy.get(1));
+            return p;
+        }
+    }
+
+    private static class Point2dStringConverter extends ResourceConverter {
+
+        Point2dStringConverter() {
+            super(Point2D.class);
+        }
+
+        @Override
+        public Object parseString(String s, ResourceMap ignore) throws ResourceConverterException {
+            List<Double> xy = parseDoubles(s, 2, "invalid x,y Point string");
+            return new Point2D.Double(xy.get(0), xy.get(1));
+        }
+    }
+
+    private static class RectangleStringConverter extends ResourceConverter {
+
+        RectangleStringConverter() {
+            super(Rectangle.class);
+        }
+
+        @Override
+        public Object parseString(String s, ResourceMap ignore) throws ResourceConverterException {
+            List<Double> xywh = parseDoubles(s, 4, "invalid x,y,width,height Rectangle string");
+            Rectangle r = new Rectangle();
+            r.setFrame(xywh.get(0), xywh.get(1), xywh.get(2), xywh.get(3));
+            return r;
+        }
+    }
+
+    private static class InsetsStringConverter extends ResourceConverter {
+
+        InsetsStringConverter() {
+            super(Insets.class);
+        }
+
+        @Override
+        public Object parseString(String s, ResourceMap ignore) throws ResourceConverterException {
+            List<Double> tlbr = parseDoubles(s, 4, "invalid top,left,bottom,right Insets string");
+            return new Insets(tlbr.get(0).intValue(), tlbr.get(1).intValue(), tlbr.get(2).intValue(), tlbr.get(3).intValue());
+        }
+    }
+
+    private static class EmptyBorderStringConverter extends ResourceConverter {
+
+        EmptyBorderStringConverter() {
+            super(EmptyBorder.class);
+        }
+
+        @Override
+        public Object parseString(String s, ResourceMap ignore) throws ResourceConverterException {
+            List<Double> tlbr = parseDoubles(s, 4, "invalid top,left,bottom,right EmptyBorder string");
+            return new EmptyBorder(tlbr.get(0).intValue(), tlbr.get(1).intValue(), tlbr.get(2).intValue(), tlbr.get(3).intValue());
         }
     }
 }

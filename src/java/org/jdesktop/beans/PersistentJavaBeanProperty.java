@@ -8,10 +8,11 @@ package org.jdesktop.beans;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.jdesktop.application.ApplicationProperties;
-import org.jdesktop.util.ServiceManager;
-
 import javafx.util.StringConverter;
+
+import org.jdesktop.application.Application;
+import org.jdesktop.application.ApplicationProperties;
+import org.jdesktop.beans.JavaBeanProperty;
 
 /**
  * A JavaBean property that uses ApplicationProperties for persistence.
@@ -26,6 +27,8 @@ public class PersistentJavaBeanProperty<T,B> extends JavaBeanProperty<T,B>
 {
     private static final Logger LOG =
             Logger.getLogger( PersistentJavaBeanProperty.class.getName() );
+
+    private Application _app;
 
     private final StringConverter<T> _converter;
 
@@ -44,6 +47,22 @@ public class PersistentJavaBeanProperty<T,B> extends JavaBeanProperty<T,B>
             StringConverter<T> converter )
     {
         super( bean, initialValue, propertyName );
+
+        try
+        {
+            // If the passed object is an application, then this
+            // means we are an application property defined on the
+            // application object. In this case the .getInstance
+            // call is not working. By using the passed object
+            // we allow persistent java bean properties defined
+            // on the application object using inline initialization.
+            // This is cool, cool, cool...
+            _app = (Application)bean;
+        }
+        catch ( ClassCastException e )
+        {
+            _app = Application.getInstance();
+        }
 
         _converter = converter;
 
@@ -86,7 +105,7 @@ public class PersistentJavaBeanProperty<T,B> extends JavaBeanProperty<T,B>
 
     private ApplicationProperties getAps()
     {
-        return ServiceManager.getApplicationService(
+        return _app.getApplicationService(
                 ApplicationProperties.class );
     }
 }

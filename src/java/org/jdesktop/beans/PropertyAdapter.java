@@ -9,7 +9,7 @@ package org.jdesktop.beans;
 import java.beans.PropertyChangeListener;
 import java.lang.reflect.Method;
 
-import org.jdesktop.util.ReflectionUtil;
+import org.jdesktop.smack.util.ReflectionUtils;
 
 /**
  * Wraps an object that offers a property change listener interface.
@@ -72,41 +72,41 @@ public class PropertyAdapter
 
         int found = 0;
 
-        _addPcl = ReflectionUtil.getMethod(
+        _addPcl = ReflectionUtils.getMethod(
                 beanClass,
                 "addPropertyChangeListener",
                 PropertyChangeListener.class );
         if ( _addPcl != null )
             found++;
 
-        _addPclNamed = ReflectionUtil.getMethod(
+        _addPclNamed = ReflectionUtils.getMethod(
                 beanClass,
                 "addPropertyChangeListener",
                 String.class, PropertyChangeListener.class );
         if ( _addPclNamed != null )
             found++;
 
-        _removePcl = ReflectionUtil.getMethod(
+        _removePcl = ReflectionUtils.getMethod(
                 beanClass,
                 "removePropertyChangeListener",
                 PropertyChangeListener.class );
         if ( _removePcl != null )
             found++;
 
-        _removePclNamed = ReflectionUtil.getMethod(
+        _removePclNamed = ReflectionUtils.getMethod(
                 beanClass,
                 "removePropertyChangeListener",
                 String.class, PropertyChangeListener.class );
         if ( _removePclNamed != null )
             found++;
 
-        _getPcls = ReflectionUtil.getMethod(
+        _getPcls = ReflectionUtils.getMethod(
                 beanClass,
                 "getPropertyChangeListeners" );
         if ( _getPcls != null )
             found++;
 
-        _getPclsNamed = ReflectionUtil.getMethod(
+        _getPclsNamed = ReflectionUtils.getMethod(
                 beanClass,
                 "getPropertyChangeListeners",
                 String.class );
@@ -130,7 +130,7 @@ public class PropertyAdapter
         if ( _addPcl == null )
             throw new NoSuchMethodError();
 
-        ReflectionUtil.invokeQuiet(
+        ReflectionUtils.invokeQuiet(
                 _addPcl,
                 _bean,
                 listener );
@@ -149,7 +149,7 @@ public class PropertyAdapter
         if ( _removePcl == null )
             throw new NoSuchMethodError();
 
-        ReflectionUtil.invokeQuiet(
+        ReflectionUtils.invokeQuiet(
                 _removePcl,
                 _bean,
                 listener );
@@ -169,7 +169,7 @@ public class PropertyAdapter
         if ( _addPclNamed == null )
             throw new NoSuchMethodError();
 
-        ReflectionUtil.invokeQuiet(
+        ReflectionUtils.invokeQuiet(
                 _addPclNamed,
                 _bean,
                 propertyName,
@@ -188,7 +188,7 @@ public class PropertyAdapter
         if ( _removePclNamed == null )
             throw new NoSuchMethodError();
 
-        ReflectionUtil.invokeQuiet(
+        ReflectionUtils.invokeQuiet(
                 _removePclNamed,
                 _bean,
                 propertyName,
@@ -200,7 +200,7 @@ public class PropertyAdapter
         if ( _getPclsNamed == null )
             throw new NoSuchMethodError();
 
-        return (PropertyChangeListener[])ReflectionUtil.invokeQuiet(
+        return (PropertyChangeListener[])ReflectionUtils.invokeQuiet(
                 _getPclsNamed,
                 _bean,
                 propertyName );
@@ -211,7 +211,7 @@ public class PropertyAdapter
         if ( _getPcls == null )
             throw new NoSuchMethodError();
 
-        return (PropertyChangeListener[])ReflectionUtil.invokeQuiet(
+        return (PropertyChangeListener[])ReflectionUtils.invokeQuiet(
                 _getPcls,
                 _bean );
     }

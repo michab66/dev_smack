@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: Loader.java 142 2015-04-14 18:46:49Z michab66 $
  *
  * Released under Gnu Public License
  * Copyright © 2008 Michael G. Binz
@@ -34,7 +34,7 @@ public abstract class StatefulRunnable<T> implements Runnable
      * @param state The state set in the constructor.
      * @see Runnable#run()
      */
-    protected abstract void run( T state );
+    abstract void run( T state );
 
     /**
      * Calls {@link #run(Object)}.

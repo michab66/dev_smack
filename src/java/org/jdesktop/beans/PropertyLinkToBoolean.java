@@ -1,4 +1,4 @@
-/* $Id: PropertyLinkInverseBoolean.java 1427 2016-02-12 18:53:03Z Michael $
+/* $Id$
  *
  * Released under Gnu Public License
  * Copyright © 2011 Michael G. Binz
@@ -10,12 +10,10 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.Objects;
 
-
-
-
 /**
+ * Links properties of all types to a boolean target.
  *
- * @version $Rev: 1427 $
+ * @version $Rev$
  * @author Michael Binz
  */
 public class PropertyLinkToBoolean
@@ -26,7 +24,7 @@ public class PropertyLinkToBoolean
 
     private final PropertyAdapter _pa;
 
-    private final boolean _inverse;
+    private final boolean _invert;
 
     /**
      * Creates a property update link between the source and target.
@@ -60,15 +58,9 @@ public class PropertyLinkToBoolean
             String propSrcName,
             Object target,
             String propTgtName,
-            boolean inverse )
+            boolean invert )
     {
-        _inverse = inverse;
-
-        PropertyProxy<Object,Object> sourceProperty =
-                new PropertyProxy<Object,Object>( propSrcName, source );
-
-        if ( sourceProperty.getClass().isPrimitive() )
-            throw new IllegalArgumentException( "Source may not be primitive." );
+        _invert = invert;
 
         _targetProperty =
                 new PropertyProxy<Object,Object>( propTgtName, target );
@@ -117,15 +109,26 @@ public class PropertyLinkToBoolean
 
     /**
      * Allows to override the target value creation.
-     * The default implementation returns true if the passed object is
-     * not null.
+     * <p>The default implementation returns true if the passed object is
+     * not null or is a number that is not equal to zero.</p>
      * <p>Note that the value returned by this operation is
-     * inversed by the base class if this was specified in the
+     * inverted by the base class if this was specified in the
      * constructor.
+     *
+     * @param newValue The value that was set on the source property.
      */
     protected boolean computeTargetValue( Object newValue )
     {
-        return newValue != null;
+        try
+        {
+            Number n =
+                    (Number)newValue;
+            return n.intValue() != 0;
+        }
+        catch ( ClassCastException e )
+        {
+            return newValue != null;
+        }
     }
 
     private void handleChange( PropertyChangeEvent evt )
@@ -136,7 +139,7 @@ public class PropertyLinkToBoolean
 
         boolean newValue = computeTargetValue( evt.getNewValue() );
 
-        if ( _inverse )
+        if ( _invert )
             newValue = ! newValue;
 
         Boolean newBooleanTargetValue =
@@ -154,6 +157,12 @@ public class PropertyLinkToBoolean
     /**
      * A listener for source changes.
      */
-    private final PropertyChangeListener _listener =
-            ( PropertyChangeEvent evt ) -> handleChange( evt );
+    private final PropertyChangeListener _listener = new PropertyChangeListener()
+    {
+        @Override
+        public void propertyChange( PropertyChangeEvent evt )
+        {
+            handleChange( evt );
+        }
+    };
 }

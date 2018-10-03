@@ -32,9 +32,10 @@ import javax.jnlp.FileContents;
 import javax.jnlp.PersistenceService;
 import javax.jnlp.ServiceManager;
 
+import org.jdesktop.application.util.AppHelper;
 import org.jdesktop.application.util.PlatformType;
 import org.jdesktop.beans.AbstractBeanEdt;
-import org.jdesktop.util.StringUtil;
+import org.jdesktop.smack.util.StringUtils;
 
 /**
  * Access to per application, per user, local file storage. The
@@ -61,17 +62,14 @@ public final class LocalStorage extends AbstractBeanEdt {
      * Create an instance.
      * @param a
      */
-    LocalStorage()
+    LocalStorage( Application a )
     {
-        ApplicationInfo a =
-                org.jdesktop.util.ServiceManager.getApplicationService( ApplicationInfo.class );
-
         String vendorId = a.getVendorId();
         String applicationId = a.getId();
 
-        if ( StringUtil.isEmpty( vendorId ) )
+        if ( StringUtils.isEmpty( vendorId ) )
             throw new IllegalArgumentException("Empty vendorId");
-        if ( StringUtil.isEmpty( applicationId ) )
+        if ( StringUtils.isEmpty( applicationId ) )
             throw new IllegalArgumentException("Empty applicationId");
 
         _vendorId =
@@ -329,7 +327,7 @@ public final class LocalStorage extends AbstractBeanEdt {
             } catch (SecurityException ignore) {
             }
             if (userHome != null) {
-                final PlatformType osId = PlatformType.getPlatform();
+                final PlatformType osId = AppHelper.getPlatform();
                 if (osId == PlatformType.WINDOWS) {
                     File appDataDir = null;
                     try {

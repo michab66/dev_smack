@@ -4,39 +4,17 @@
  */
 package org.jdesktop.application;
 
-import java.awt.Component;
-import java.awt.Container;
-import java.beans.BeanInfo;
-import java.beans.IntrospectionException;
-import java.beans.Introspector;
-import java.beans.PropertyDescriptor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Logger;
 
-import javax.swing.AbstractButton;
-import javax.swing.JLabel;
-import javax.swing.JMenu;
-
-import org.jdesktop.application.ResourceMap.InjectFieldException;
-import org.jdesktop.application.ResourceMap.LookupException;
-import org.jdesktop.application.ResourceMap.PropertyInjectionException;
-import org.jdesktop.util.ReflectionUtil;
-import org.jdesktop.util.ResourceManager.Resource;
-import org.jdesktop.util.StringUtil;
-
-import javafx.util.Pair;
+import org.jdesktop.smack.util.ReflectionUtils;
+import org.jdesktop.smack.util.StringUtils;
 
 
 /**
@@ -75,13 +53,10 @@ import javafx.util.Pair;
  */
 public final class ResourceManager
 {
-    private final static Logger LOG =
-            Logger.getLogger( ResourceManager.class.getName() );
-
     private final Map<String, ResourceMap> resourceMaps =
-                new ConcurrentHashMap<>();
+                new ConcurrentHashMap<String, ResourceMap>();
 
-    private final List<String> _applicationBundleNames;
+    private List<String> _applicationBundleNames;
 
     private ResourceMap _appResourceMap = null;
 
@@ -90,7 +65,7 @@ public final class ResourceManager
      * application-wide elements of the resource map.
      * Is never null.
      */
-    private final Class<?> _applicationClass;
+    private Class<?> _applicationClass;
 
     /**
      * Creates an instance.
@@ -128,10 +103,8 @@ public final class ResourceManager
     public ResourceManager( Class<?> applicationClass ) {
         if ( applicationClass == null )
             throw new IllegalArgumentException( "null applicationClass" );
-        _applicationClass = applicationClass;
-        _applicationBundleNames = allBundleNames(
-                _applicationClass,
-                Object.class );
+
+        setApplicationClass( applicationClass );
     }
 
     /**
@@ -144,7 +117,7 @@ public final class ResourceManager
      */
     static private List<String> allBundleNames(Class<?> startClass, Class<?> stopClass)
     {
-        List<String> result = new ArrayList<>();
+        List<String> result = new ArrayList<String>();
 
         Class<?> limitClass = stopClass.getSuperclass(); // could be null
 
@@ -166,7 +139,7 @@ public final class ResourceManager
         int idx = bundleName.lastIndexOf( "." );
 
         return ( idx == -1 ) ?
-                StringUtil.EMPTY_STRING :
+                StringUtils.EMPTY_STRING :
                 bundleName.substring( 0, idx );
     }
 
@@ -189,7 +162,7 @@ public final class ResourceManager
         String bundleName0 = names.next();
         String rmBundlePackage = bundlePackageName(bundleName0);
 
-        List<String> rmNames = new ArrayList<>();
+        List<String> rmNames = new ArrayList<String>();
         rmNames.add(bundleName0);
 
         while ( names.hasNext())
@@ -302,7 +275,7 @@ public final class ResourceManager
         // We put the application bundle names in front of the list to
         // allow overriding of all resources in the application resources.
         List<String> classBundleNames =
-                new ArrayList<>( _applicationBundleNames );
+                new ArrayList<String>( _applicationBundleNames );
         classBundleNames.addAll( allBundleNames( startClass, stopClass ) );
 
         ClassLoader classLoader =
@@ -384,7 +357,7 @@ public final class ResourceManager
         Class<?> clazz;
 
         // If we already received a class instance, use it. Otherwise
-        // get the objects class.  This allows injection of static
+        // get the objects class.  This is allows injection of static
         // attribute values on library classes.
         if ( o instanceof Class )
             clazz = (Class<?>)o;
@@ -397,12 +370,12 @@ public final class ResourceManager
         // Perform the injection for the object's class and all its
         // super classes.
         // TODO michab -- Ensure quick return if already injected.
-        for ( Class<?> c : ReflectionUtil.getInheritanceList( clazz ) )
+        for ( Class<?> c : ReflectionUtils.getInheritanceList( clazz ) )
         {
             if ( c.getClassLoader() == null )
                 break;
 
-            injectFields( o, c, resourceMap );
+            resourceMap.injectFields( o, c );
         }
     }
 
@@ -443,7 +416,7 @@ public final class ResourceManager
 
         String resourcePackage = packge != null ?
                 packge.getName() + "." :
-                StringUtil.EMPTY_STRING;
+                StringUtils.EMPTY_STRING;
 
         resourcePackage += "resources.";
 
@@ -455,368 +428,12 @@ public final class ResourceManager
         return Arrays.asList( classBundle, packageBundle );
     }
 
-    /**
-     * Set each field with a <tt>&#064;Resource</tt> annotation in the target object,
-     * to the value of a resource whose name is the simple name of the target
-     * class followed by "." followed by the name of the field.  If the
-     * key <tt>&#064;Resource</tt> parameter is specified, then a resource with that name
-     * is used instead.  Array valued fields can also be initialized.
-     * For example:
-     * <pre>
-     * class MyClass {
-     *   &#064;Resource String sOne;
-     *   &#064;Resource(key="sTwo") String s2;
-     *   &#064;Resource int[] numbers;
-     * }
-     * </pre>
-     * Given the previous class and the following resource file:
-     * <pre>
-     * MyClass.sOne = One
-     * sTwo = Two
-     * MyClass.numbers = 10 11
-     * </pre>
-     * Then <tt>injectFields(new MyClass())</tt> would initialize the MyClass
-     * <tt>sOne</tt> field to "One", the <tt>s2</tt> field to "Two", and the
-     * two elements of the numbers array to 10 and 11.
-     * <p>
-     * If <tt>target</tt> is null an IllegalArgumentException is
-     * thrown.  If an error occurs during resource lookup, then an
-     * unchecked LookupException is thrown.  If a target field marked
-     * with <tt>&#064;Resource</tt> can't be set, then an unchecked
-     * InjectFieldException is thrown.
-     *
-     * @param target the object whose fields will be initialized
-     * @param targetType The type of the target object to inject.
-     * This is used to explicitly inject super-class resources.
-     * @throws LookupException if an error occurs during lookup or string conversion
-     * @throws InjectFieldException if a field can't be set
-     * @throws IllegalArgumentException if target is null
-     * @see #getObject
-     */
-    public void injectFields(Object target, Class<?> targetType, ResourceMap map ) {
-        if (target==null)
-            throw new IllegalArgumentException("null target");
-        if (targetType.isPrimitive())
-            throw new IllegalArgumentException("primitive target");
-        if (targetType.isArray())
-            throw new IllegalArgumentException("array target");
-
-        String keyPrefix = targetType.getSimpleName() + ".";
-
-        for ( Pair<Field,Resource> field :
-            ReflectionUtil.getAnnotatedFields(
-                    targetType,
-                    Resource.class ) )
-        {
-            String key = field.getValue().mappedName();
-
-            if ( ! StringUtil.hasContent( key ) )
-                key = keyPrefix + field.getKey().getName();
-
-            injectField( field.getKey(), target, key, map );
-        }
-    }
-
-    /**
-     * Inject a single field.
-     *
-     * @param field The field to inject.
-     * @param target The target object instance.
-     * @param key The resource key.
-     */
-    private void injectField( Field field, Object target, String key, ResourceMap map )
+    void setApplicationClass( Class<?> applicationClass )
     {
-        if (!field.isAccessible())
-            field.setAccessible(true);
-
-        Class<?> type = field.getType();
-
-        if ( Component.class.isAssignableFrom( type ) )
-        {
-            Component fieldValue = null;
-            try
-            {
-                fieldValue = (Component)field.get( target );
-            }
-            catch ( Exception e )
-            {
-                throw new InjectFieldException("unable to get field's value", field, target, key, e);
-            }
-
-            if ( fieldValue == null )
-                throw new InjectFieldException( "null component field marked with @Resource", field, target, key, null );
-            // TODO if null try to create instance using deflt ctor?
-
-            injectComponentProperties( key, fieldValue, map );
-        }
-        else
-        {
-            Object value = map.getObject(key, type);
-
-            if ( value == null )
-            {
-                LOG.warning( "No value for @Resource(" + key + ")" );
-                return;
-            }
-
-            try {
-                field.set(target, value);
-            }
-            catch (Exception e) {
-                throw new InjectFieldException("unable to set field's value", field, target, key, e);
-            }
-        }
-    }
-
-    /**
-     *
-     * @param component
-     * @param pd
-     * @param key
-     */
-    private void injectComponentProperty(Component component, PropertyDescriptor pd, String key, ResourceMap map ) {
-        Method setter = pd.getWriteMethod();
-        Class<?> type = pd.getPropertyType();
-        if ((setter != null) && (type != null) && map.containsKey(key)) {
-            Object value = map.getObject(key, type);
-            String propertyName = pd.getName();
-            try {
-                // Note: this could be generalized, we could delegate
-                // to a component property injector.
-                if ("text".equals(propertyName) && (component instanceof AbstractButton)) {
-                    MnemonicText.configure(component, (String) value);
-                } else if ("text".equals(propertyName) && (component instanceof JLabel)) {
-                    MnemonicText.configure(component, (String) value);
-                } else {
-                    setter.invoke(component, value);
-                }
-            } catch (Exception e) {
-                String pdn = pd.getName();
-                String msg = "property setter failed";
-                RuntimeException re = new PropertyInjectionException(msg, key, component, pdn);
-                re.initCause(e);
-                throw re;
-            }
-        } else if (type != null) {
-            String pdn = pd.getName();
-            String msg = "no value specified for resource";
-            throw new PropertyInjectionException(msg, key, component, pdn);
-        } else if (setter == null) {
-            String pdn = pd.getName();
-            String msg = "can't set read-only property";
-            throw new PropertyInjectionException(msg, key, component, pdn);
-        }
-    }
-
-    /**
-     *
-     * @param componentName
-     * @param component
-     */
-    private void injectComponentProperties(String componentName, Component component, ResourceMap map) {
-        if ( componentName == null )
-            return;
-
-        /* Optimization: punt early if componentName doesn't
-         * appear in any componentName.propertyName resource keys
-         */
-        boolean matchingResourceFound = false;
-        for (String key : map.keySet()) {
-            int i = key.lastIndexOf(".");
-            if ((i != -1) && componentName.equals(key.substring(0, i))) {
-                matchingResourceFound = true;
-                break;
-            }
-        }
-        if (!matchingResourceFound) {
-            return;
-        }
-        BeanInfo beanInfo;
-        try {
-            beanInfo = Introspector.getBeanInfo(component.getClass());
-        } catch (IntrospectionException e) {
-            String msg = "introspection failed";
-            RuntimeException re = new PropertyInjectionException(msg, null, component, null);
-            re.initCause(e);
-            throw re;
-        }
-        PropertyDescriptor[] pds = beanInfo.getPropertyDescriptors();
-        if ((pds != null) && (pds.length > 0)) {
-            for (String key : map.keySet()) {
-                int i = key.lastIndexOf(".");
-                String keyComponentName = (i == -1) ? null : key.substring(0, i);
-                if (componentName.equals(keyComponentName)) {
-                    if ((i + 1) == key.length()) {
-                        /* key has no property name suffix, e.g. "myComponentName."
-                         * This is probably a mistake.
-                         */
-                        String msg = "component resource lacks property name suffix";
-                        LOG.warning(msg);
-                        break;
-                    }
-                    String propertyName = key.substring(i + 1);
-                    boolean matchingPropertyFound = false;
-                    for (PropertyDescriptor pd : pds) {
-                        if (pd.getName().equals(propertyName)) {
-                            injectComponentProperty(component, pd, key,map);
-                            matchingPropertyFound = true;
-                            break;
-                        }
-                    }
-                    if (!matchingPropertyFound) {
-                        String msg = String.format(
-                                "[resource %s] component named %s doesn't have a property named %s",
-                                key, componentName, propertyName);
-                        LOG.warning(msg);
-                    }
-                }
-            }
-        }
-    }
-
-    /* Applies {@link #injectComponent} to each Component in the
-     * hierarchy with root <tt>root</tt>.
-     *
-     * @param root the root of the component hierarchy
-     * @throws PropertyInjectionException if a property specified by a resource can't be set
-     * @throws IllegalArgumentException if target is null
-     * @see #injectComponent
-     */
-    public void injectComponents(Component root,ResourceMap map) {
-        injectComponent(root,map);
-        if (root instanceof JMenu) {
-            /* Warning: we're bypassing the popupMenu here because
-             * JMenu#getPopupMenu creates it; doesn't seem right
-             * to do so at injection time.  Unfortunately, this
-             * means that attempts to inject the popup menu's
-             * "label" property will fail.
-             */
-            JMenu menu = (JMenu) root;
-            for (Component child : menu.getMenuComponents()) {
-                injectComponents(child,map);
-            }
-        } else if (root instanceof Container) {
-            Container container = (Container) root;
-            for (Component child : container.getComponents()) {
-                injectComponents(child,map);
-            }
-        }
-    }
-
-    /**
-     * Set each property in <tt>target</tt> to the value of
-     * the resource named <tt><i>componentName</i>.propertyName</tt>,
-     * where  <tt><i>componentName</i></tt> is the value of the
-     * target component's name property, i.e. the value of
-     * <tt>target.getName()</tt>.  The type of the resource must
-     * match the type of the corresponding property.  Properties
-     * that aren't defined by a resource aren't set.
-     * <p>
-     * For example, given a button configured like this:
-     * <pre>
-     * myButton = new JButton();
-     * myButton.setName("myButton");
-     * </pre>
-     * And a ResourceBundle properties file with the following
-     * resources:
-     * <pre>
-     * myButton.text = Hello World
-     * myButton.foreground = 0, 0, 0
-     * myButton.preferredSize = 256, 256
-     * </pre>
-     * Then <tt>injectComponent(myButton)</tt> would initialize
-     * myButton's text, foreground, and preferredSize properties
-     * to <tt>Hello World</tt>, <tt>new Color(0,0,0)</tt>, and
-     * <tt>new Dimension(256,256)</tt> respectively.
-     * <p>
-     * This method calls {@link #getObject} to look up resources
-     * and it uses {@link Introspector#getBeanInfo} to find
-     * the target component's properties.
-     * <p>
-     * If target is null an IllegalArgumentException is thrown.  If a
-     * resource is found that matches the target component's name but
-     * the corresponding property can't be set, an (unchecked) {@link
-     * PropertyInjectionException} is thrown.
-     *
-     *
-     *
-     * @param target the Component to inject
-     * @see #injectComponents
-     * @see #getObject
-     * @see ResourceConverter#forType
-     * @throws LookupException if an error occurs during lookup or string conversion
-     * @throws PropertyInjectionException if a property specified by a resource can't be set
-     * @throws IllegalArgumentException if target is null
-     */
-    public void injectComponent(Component target,ResourceMap map) {
-        if (target == null) {
-            throw new IllegalArgumentException("null target");
-        }
-        injectComponentProperties(target.getName(), target,map);
-    }
-    /**
-     * Inject the passed bean's properties from this map. The prefix is
-     * used to find the configuration keys in the map. Keys in the
-     * map have to look like prefix.propertyName. The dot is added to
-     * the prefix.
-     *
-     * @param bean The bean whose properties are injected.
-     * @param prefix The prefix used to filter the map's keys.
-     */
-    public void injectProperties( Object bean, String prefix, ResourceMap map )
-    {
-        BeanInfo beanInfo;
-        try {
-            beanInfo = Introspector.getBeanInfo(
-                    bean.getClass() );
-        } catch (IntrospectionException e) {
-            throw new IllegalArgumentException( "Introspection failed.", e );
-        }
-
-        // Add the dot.
-        prefix += ".";
-
-        Set<String> definedKeys = new HashSet<>();
-        for ( String c : map.keySet() )
-            if ( c.startsWith( prefix ) )
-                definedKeys.add( c );
-
-        if ( definedKeys.size() == 0 )
-            return;
-
-        for ( PropertyDescriptor c : beanInfo.getPropertyDescriptors() )
-        {
-            Method setter = c.getWriteMethod();
-
-            // Skip read-only properties.
-            if ( setter == null )
-                continue;
-
-            String currentKey = prefix + c.getName();
-            if ( ! definedKeys.contains( currentKey ) )
-                continue;
-
-            definedKeys.remove( currentKey );
-
-            try
-            {
-                // This implicitly transforms the key's value.
-                setter.invoke( bean, map.get( currentKey, c.getPropertyType() ) );
-            }
-            catch ( IllegalAccessException e )
-            {
-                throw new RuntimeException( e );
-            }
-            catch ( InvocationTargetException e )
-            {
-                throw new RuntimeException( e.getCause() );
-            }
-
-            if ( definedKeys.size() == 0 )
-                return;
-        }
-
-        for ( String c : definedKeys )
-            LOG.warning( String.format( "Key '%s' defined in map does not match property.", c ) );
+        _applicationClass = applicationClass;
+        _applicationBundleNames = allBundleNames(
+                _applicationClass,
+                Object.class );
+        _appResourceMap = null;
     }
 }

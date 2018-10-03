@@ -4,8 +4,7 @@
  */
 package org.jdesktop.smack.util;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -21,7 +20,34 @@ import java.util.ResourceBundle.Control;
  */
 public class ResourceUtils
 {
-    private static final String RESOURCE_PACKAGE_NAME = "resources";
+    private static ResourceBundle EMPTY_RESOURCE_BUNDLE = new ResourceBundle()
+    {
+
+        @Override
+        protected Object handleGetObject( String key )
+        {
+            return null;
+        }
+
+        @Override
+        public Enumeration<String> getKeys()
+        {
+            return new Enumeration<String>()
+            {
+                @Override
+                public boolean hasMoreElements()
+                {
+                    return false;
+                }
+
+                @Override
+                public String nextElement()
+                {
+                    throw new IllegalStateException();
+                }
+            };
+        }
+    };
 
     /**
      * Unchecked exception thrown by {@link #getObject} when resource lookup
@@ -85,7 +111,7 @@ public class ResourceUtils
     {
         try
         {
-            Map<String, String> result = new HashMap<>();
+            Map<String, String> result = new HashMap<String, String>();
 
             // Preprocessing is currently limited to a single
             // resource bundle. A broader context may be
@@ -183,6 +209,18 @@ public class ResourceUtils
         return result.toString();
     }
 
+    public static void main( String[] args )
+    {
+
+        ResourceBundle rb = getClassResources( ResourceUtils.class );
+
+        System.err.println(  rb.getKeys().hasMoreElements() );
+        System.err.println(  rb.keySet().size() );
+
+        Map<String, String> pp = preprocessResourceBundle( rb );
+        System.err.println(  pp.size() );
+    }
+
     /**
      * Get class specific resources. If the passed classes full
      * name is "org.good.Class" then this operation loads
@@ -190,7 +228,8 @@ public class ResourceUtils
      *
      * @param c The class for which the resources should be loaded.
      * @return A ResourceBundle. If no resource bundle was found
-     * for the passed class, then the result is {@code null}.
+     * for the passed class, then the returned resource bundle is
+     * empty.
      */
    public static ResourceBundle getClassResources( Class<?> c )
     {
@@ -201,7 +240,7 @@ public class ResourceUtils
         if ( lastDotIdx > 0 )
         {
             StringBuilder sb = new StringBuilder( name ) ;
-            sb.insert( lastDotIdx, "." + RESOURCE_PACKAGE_NAME );
+            sb.insert( lastDotIdx, ".resources" );
             name = sb.toString();
         }
 
@@ -211,75 +250,7 @@ public class ResourceUtils
         }
         catch ( MissingResourceException e )
         {
-            return null;
-        }
-    }
-
-    /**
-     * Load a named resource from the resource package of the passed
-     * class.
-     *
-     * @param c1ass The class used to locate the resource package.
-     * @param name The name of the resource.
-     * @return The resource InputStream.  Note that this must be
-     * closed after use. Never null, throws a RuntimeException if
-     * the resource was not found.
-     */
-    public static InputStream getResourceAsStream(
-            Class<?> c1ass,
-            String name )
-    {
-        String packageName =
-                RESOURCE_PACKAGE_NAME + "/" + name;
-        InputStream result =
-                c1ass.getResourceAsStream( packageName );
-
-        if ( result == null )
-            throw new RuntimeException(
-                    "Resource not found: " + packageName );
-
-        return result;
-    }
-
-    /**
-     * Load a named resource from the resource package of the passed
-     * class.
-     *
-     * @param c1ass The class used to locate the resource package.
-     * @param name The name of the resource.
-     * @return The resource content. Never null, throws a
-     * RuntimeException if the resource was not found.
-     */
-    public static byte[] loadResource(
-            Class<?> c1ass,
-            String name )
-    {
-        InputStream is = getResourceAsStream(
-                c1ass,
-                name );
-
-        // Note Java 9 offers
-        // byte[] array = InputStream.readAllBytes();
-        ByteArrayOutputStream result =
-                new ByteArrayOutputStream();
-
-        try
-        {
-            while ( true )
-            {
-                int c = is.read();
-
-                if ( c == -1 )
-                    return result.toByteArray();
-
-                result.write( c );
-            }
-        }
-        catch ( Exception e )
-        {
-            FileUtils.forceClose( is );
-            throw new RuntimeException(
-                    "Failed reading resource: " + name, e );
+            return EMPTY_RESOURCE_BUNDLE;
         }
     }
 

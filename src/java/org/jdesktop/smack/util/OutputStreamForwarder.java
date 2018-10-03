@@ -13,8 +13,6 @@ import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-import org.jdesktop.util.InterruptibleThread;
-
 /**
  * An output stream that decouples the writing thread from the thread that
  * forwards the data to the passed target stream.
