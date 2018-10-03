@@ -21,7 +21,7 @@ import javax.swing.text.JTextComponent;
 
 import org.jdesktop.beans.ConstrainedProperty;
 import org.jdesktop.beans.PropertyProxy;
-import org.jdesktop.util.StringUtil;
+import org.jdesktop.smack.util.StringUtils;
 
 
 
@@ -180,7 +180,7 @@ public class TextContentNotifier
      */
     protected boolean isValidContent( String pContent )
     {
-        return StringUtil.hasContent( pContent, true );
+        return StringUtils.hasContent( pContent, true );
     }
 
     /**
@@ -210,7 +210,7 @@ public class TextContentNotifier
         }
         catch ( BadLocationException e )
         {
-            content = StringUtil.EMPTY_STRING;
+            content = StringUtils.EMPTY_STRING;
         }
 
         Boolean result = Boolean.valueOf( isValidContent( content ) );

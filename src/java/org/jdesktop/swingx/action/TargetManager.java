@@ -34,7 +34,7 @@ import javax.swing.Action;
 import javax.swing.ActionMap;
 import javax.swing.JComponent;
 
-import org.jdesktop.util.ServiceManager;
+import org.jdesktop.application.Application;
 
 
 
@@ -103,7 +103,7 @@ public class TargetManager {
      * Return the singleton instance.
      */
     public static TargetManager getInstance() {
-        return ServiceManager.getApplicationService( TargetManager.class );
+        return Application.getInstance().getApplicationService( TargetManager.class );
     }
 
     /**

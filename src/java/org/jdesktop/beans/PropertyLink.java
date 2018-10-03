@@ -1,26 +1,21 @@
 /* $Id$
  *
  * Released under Gnu Public License
- * Copyright © 2011-17 Michael G. Binz
+ * Copyright © 2011 Michael G. Binz
  */
+
 package org.jdesktop.beans;
 
-import java.util.HashSet;
-import java.util.WeakHashMap;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 
-import org.jdesktop.application.ApplicationProperties;
-import org.jdesktop.util.OneToN;
-import org.jdesktop.util.ServiceManager;
+import org.jdesktop.smack.util.JavaUtils;
 
-import javafx.beans.property.ObjectProperty;
-import javafx.beans.property.adapter.JavaBeanObjectProperty;
-import javafx.beans.property.adapter.JavaBeanObjectPropertyBuilder;
-import javafx.beans.property.adapter.ReadOnlyJavaBeanObjectProperty;
-import javafx.beans.property.adapter.ReadOnlyJavaBeanObjectPropertyBuilder;
-import javafx.util.StringConverter;
+
+
 
 /**
- * Links a bound property on a source object to a property on
+ * Links a bound property on a source object to a bound property on
  * a target object.
  *
  * @version $Rev$
@@ -28,12 +23,29 @@ import javafx.util.StringConverter;
  */
 public class PropertyLink
 {
-    private static final OneToN<Object, Object, HashSet<Object>> _holder =
-            new OneToN<>( WeakHashMap::new, HashSet::new );
-    private final ReadOnlyJavaBeanObjectProperty<?>
-        _sourceProperty;
-    private final JavaBeanObjectProperty<Object>
-        _targetProperty;
+    private final String _propertySrcName;
+
+    private final PropertyProxy<Object,Object> _targetProperty;
+
+    private final PropertyAdapter _pa;
+
+    /**
+     * Creates a property update link between the source and target.
+     *
+     * @param source A source property. Changes on this are propagated to the
+     * target object.
+     * @param target The target property.
+     */
+    public PropertyLink(
+            PropertyType<?, ?> source,
+            PropertyType<?, ?> target )
+    {
+        this(
+                source.getBean(),
+                source.getName(),
+                target.getBean(),
+                target.getName() );
+    }
 
     /**
      * Creates a property update link between the source and target.
@@ -43,9 +55,7 @@ public class PropertyLink
      * target object.
      * @param propName The name of source and target property.
      * @param target The target object.
-     * @deprecated Use static {@link #bind(Object, String, Object)}
      */
-    @Deprecated
     public PropertyLink(
             Object source,
             String propName,
@@ -62,44 +72,22 @@ public class PropertyLink
      * @param propSrcName The name of the source property.
      * @param target The target object.
      * @param propTgtName The name of the target property.
-     * @deprecated Use static {@link #bind(Object, String, Object, String)}
      */
-    @Deprecated
     public PropertyLink(
             Object source,
             String propSrcName,
             Object target,
             String propTgtName )
     {
-        // Would be cool if we could match the types of source and target
-        // but this is currently not part of the FX properties API.
-        // Anyway, we fail in both cases at runtime.
-        try
-        {
-            // TODO: Create the property in this special way to prevent
-            // type warnings. I think the typing of JBOPB is plainly wrong.
-            JavaBeanObjectPropertyBuilder<Object> tgtBld =
-                    new JavaBeanObjectPropertyBuilder<>();
-            tgtBld
-                .name( propTgtName )
-                .bean( target );
-            _targetProperty =
-                    tgtBld.build();
-            _sourceProperty =
-                    ReadOnlyJavaBeanObjectPropertyBuilder.create()
-                        .name( propSrcName )
-                        .bean( source )
-                        .build();
-            _holder.putValue(
-                    source,
-                    _targetProperty );
-            _targetProperty.bind(
-                    _sourceProperty );
-        }
-        catch ( NoSuchMethodException e )
-        {
-            throw new IllegalArgumentException( e );
-        }
+        _propertySrcName = propSrcName;
+
+        _pa =
+            new PropertyAdapter( source );
+
+        _pa.addPropertyChangeListener( _listener );
+
+        _targetProperty =
+            new PropertyProxy<Object,Object>( propTgtName, target );
     }
 
     /**
@@ -109,7 +97,11 @@ public class PropertyLink
      */
     public PropertyLink update()
     {
-        _sourceProperty.fireValueChangedEvent();
+        PropertyProxy<Object, Object> sourceProperty =
+                new PropertyProxy<Object, Object>( _propertySrcName, _pa.getBean() );
+
+        _targetProperty.set( sourceProperty.get() );
+
         return this;
     }
 
@@ -119,71 +111,30 @@ public class PropertyLink
      */
     public void dispose()
     {
-        _sourceProperty.dispose();
-        _targetProperty.dispose();
-    }
-
-    public static PropertyLink bind(
-            Object source,
-            String propSrcName,
-            Object target,
-            String propTgtName )
-    {
-        return new PropertyLink( source, propSrcName, target, propTgtName );
-    }
-    public static PropertyLink bind(
-            Object source,
-            String propSrcName,
-            Object target )
-    {
-        return new PropertyLink( source, propSrcName, target, propSrcName );
+        _pa.removePropertyChangeListener( _listener );
     }
 
     /**
-     * Persist the passed property.
-     *
-     * @param p The property to persist.
-     * @param c A converter.
-     * @return The passed property with additional persistence bindings.
+     * A listener for source changes.
      */
-    public static <T,P extends ObjectProperty<T> >
-        P persist(
-                P p,
-                StringConverter<T> c )
+    private final PropertyChangeListener _listener = new PropertyChangeListener()
     {
-        ApplicationProperties a = ServiceManager.getApplicationService(
-                ApplicationProperties.class );
-
-        // Read the initial value from persistence.
-        T initialValue = c.fromString(
-                a.get( p.getBean().getClass(), p.getName(), null ) );
-
-        // If an initial value was set in persistence ...
-        if ( initialValue != null )
+        @Override
+        public void propertyChange( PropertyChangeEvent evt )
         {
-            // ... we set it on  the property.
-            p.set( initialValue );
+            // Ignore change events for other properties.
+            if ( ! _propertySrcName.equals( evt.getPropertyName() ) )
+                return;
+
+            Object newValue = evt.getNewValue();
+
+            // If the new value and the value on the target are already the
+            // same we ignore the call.
+            if ( JavaUtils.equals( _targetProperty.get(), newValue ) )
+                return;
+
+            // Set the value.
+            _targetProperty.set( newValue );
         }
-        // If we found nothing in persistence, but the property
-        // has a value ...
-        else if ( p.get() != null )
-        {
-            // ... we update persistence.
-            a.put(
-                    p.getBean().getClass(),
-                    p.getName(),
-                    c.toString( p.get() ) );
-        }
-
-        p.addListener( (observable,o,n) ->
-        {
-            // Record all property changes in persistence.
-            a.put(
-                    p.getBean().getClass(),
-                    p.getName(),
-                    c.toString( n ) );
-        } );
-
-        return p;
-    }
+    };
 }

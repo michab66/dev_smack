@@ -41,28 +41,18 @@
     name="out.bin"
     value="${build.dir}/ant/${application.title}/class"/>
 
-    <property
-      description="The name of the product."
-      name="product.name"
-      value="${application.title}fx-${build.number}"/>
-
   <!-- This dir will receive all jars.  The project's main jar as well
        as the 3rd party jars needed by the main.  In case of commons,
        all the jars copied here can be seen as published for all. -->
   <property
     description="The name of the target directory for the distributables."
     name="out.dist"
-    value="${build.dir}/dist/${product.name}"/>
+    value="${build.dir}/dist/${application.title}-${build.number}"/>
 
   <property
     description="The name of a directory for the project web site."
     name="out.web"
     value="${build.dir}/web"/>
-
-    <property
-      description="The name of the product."
-      name="product.name"
-      value="${application.title}fx-${build.number}"/>
 
   <property file="build.properties"></property>
 
@@ -104,19 +94,17 @@
 
 
 
-    <target description="Copies resource files into the build area."
+  <target description="Copies resource files into the build area."
           name="resource"
           depends="class">
-        <echo message="${out.bin}"/>
-        <copy todir="${out.bin}">
-            <fileset dir="${in.src}"
-                 excludes="doc/**"
-                 includes="**/*.properties,**/*.gif,**/*.png"/>
-        </copy>
-        <copy todir="${out.bin}/META-INF/services">
-            <fileset dir="${in.src}/META-INF/services" />
-        </copy>
-    </target>
+    <echo message="${out.bin}"/>
+    <copy todir="${out.bin}">
+      <fileset dir="${in.src}"
+               excludes="doc/**"
+               includes="**/*.properties,**/*.gif,**/*.png"/>
+    </copy>
+  </target>
+
 
   <target name="jdoc" depends="class"
           description="Generates the javadocs into the web area.">
@@ -133,13 +121,12 @@
   <target name="jar-bin" depends="resource">
     <!-- Jar the project main jar directly to the final position. -->
     <jar
-      jarfile="${out.dist}/${product.name}.jar"
+      jarfile="${out.dist}/${application.title}-${build.number}.jar"
       basedir="${out.bin}"
       excludes="${in.src}/doc/**">
 
       <manifest>
         <attribute name="Built-By" value="${user.name}"/>
-        <attribute name="Automatic-Module-Name" value="${ant.project.name}"/>
         <section name="${ant.project.name}">
             <attribute 
                 name="Implementation-Title" 
@@ -154,7 +141,7 @@
 
   <target name="jar-src" depends="resource">
     <jar
-      jarfile="${out.dist}/${product.name}-src.jar"
+      jarfile="${out.dist}/${application.title}-src-${build.number}.jar"
       basedir="${in.src}"
       excludes="${in.src}/doc/**">
 
@@ -173,7 +160,7 @@
   </target>
 
   <target name="jar-javadoc" depends="resource, jdoc">
-    <zip destfile="${out.dist}/${product.name}-javadoc.zip"
+    <zip destfile="${out.dist}/${application.title}-javadoc-${build.number}.zip"
   	       basedir="${out.web}/javadoc"
   	  />
   </target>
@@ -182,7 +169,7 @@
           name="dist"
           depends="jar-bin, jar-src, jar-javadoc">
     <echo>${java.version}</echo>
-    <zip destfile="${out.dist}/../${product.name}.zip"
+    <zip destfile="${out.dist}/../${application.title}-${build.number}.zip"
            basedir="${out.dist}"
       />
   </target>

@@ -11,11 +11,12 @@ import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Vector;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.swing.filechooser.FileFilter;
 
-import org.jdesktop.util.Log;
-import org.jdesktop.util.StringUtil;
+
 
 /**
  * A library of utility routines for file handling.
@@ -23,13 +24,25 @@ import org.jdesktop.util.StringUtil;
  * @version $Rev$s
  * @author Michael Binz
  */
-public final class FileUtils
+public class FileUtils
 {
+    /**
+     * Instances cannot be created.
+     */
+    private FileUtils()
+    {
+        throw new AssertionError();
+    }
+
+
+
     /**
      * The logger for this class.
      */
-    private static final Log LOG = new Log(
-            FileUtils.class );
+    private static final Logger LOG = Logger.getLogger(
+        FileUtils.class.getName() );
+
+
 
     /**
      * Resolves directories in the passed file list. That is, normal file
@@ -42,7 +55,7 @@ public final class FileUtils
      */
     public static File[] resolveDirectories( File[] files )
     {
-        Vector<File> fs = new Vector<>();
+        Vector<File> fs = new Vector<File>();
 
         for ( File file : files )
         {
@@ -88,18 +101,21 @@ public final class FileUtils
 
             closeOperation.invoke(closeable);
         }
-        catch (NoSuchMethodException e)
-        {
-            throw new IllegalArgumentException(e);
+        catch (NoSuchMethodException e) {
+
+            throw new IllegalArgumentException(e.getMessage());
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
+
+            if ( ! LOG.isLoggable(Level.FINE) )
+                return;
+
             Throwable t = e;
 
             if (t instanceof InvocationTargetException)
                 t = t.getCause();
 
-            LOG.fine(t.getMessage(), t);
+            LOG.log(Level.FINE, t.getMessage(), t);
         }
     }
 
@@ -110,83 +126,16 @@ public final class FileUtils
      * @param filter The filter to use.
      * @return The files that have been accepted by the filter.
      */
-    public static File[] filterFiles( File[] files, FileFilter filter )
-    {
-        Vector<File> collector = new Vector<>( files.length );
+   public static File[] filterFiles( File[] files, FileFilter filter )
+   {
+       Vector<File> collector = new Vector<File>( files.length );
 
-        for ( File f : files )
-        {
-            if ( filter.accept( f ) )
-                collector.add( f );
-        }
+       for ( File f : files )
+       {
+           if ( filter.accept( f ) )
+               collector.add( f );
+       }
 
-        return collector.toArray( new File[ collector.size() ] );
-    }
-
-    private final static char SUFFIX_SEPARATOR = '.';
-
-    /**
-     * Get the passed file's suffix.
-     * @param file A file.
-     * @return The passed file's suffix not including the separator.
-     */
-    public static String getSuffix( File file )
-    {
-        String filename = file.getName();
-
-        int dotidx = filename.lastIndexOf( SUFFIX_SEPARATOR );
-
-        if (dotidx == -1 )
-            return StringUtil.EMPTY_STRING;
-
-        return filename.substring( dotidx+1 );
-    }
-
-    /**
-     * Replace the suffix in a filename.
-     * @param filename The file name.
-     * @param newSuffix A new suffix without a separator character.
-     * @return The extended file name.
-     */
-    public static String replaceSuffix( String filename, String newSuffix )
-    {
-        int dotidx = filename.lastIndexOf( SUFFIX_SEPARATOR );
-
-        if (dotidx == -1 )
-            return filename + newSuffix;
-
-        return filename.substring( 0, dotidx ) + SUFFIX_SEPARATOR + newSuffix;
-    }
-
-    /**
-     * Replace the suffix in a file name.
-     * @param filename A file.
-     * @param newSuffix The new suffix without a separator character.
-     * @return The extended file name.
-     */
-    public static File replaceSuffix( File filename, String newSuffix )
-    {
-        return new File(
-                filename.getParent(),
-                replaceSuffix(
-                        filename.getName(),
-                        newSuffix)
-                 );
-    }
-
-    /**
-     * Instances cannot be created.
-     */
-    private FileUtils()
-    {
-        throw new AssertionError();
-    }
-
-    public static void main( String[] args )
-    {
-        File f = new File( "blah.txt" );
-        System.err.println( getSuffix( f ) );
-        System.err.println( getSuffix( new File("argh.") ) );
-        System.err.println( replaceSuffix( f, "doc" ) );
-    }
+       return collector.toArray( new File[ collector.size() ] );
+   }
 }

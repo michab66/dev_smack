@@ -7,7 +7,6 @@
 package org.jdesktop.smack.util;
 
 import java.awt.Point;
-import java.awt.geom.Point2D;
 
 
 
@@ -20,24 +19,6 @@ import java.awt.geom.Point2D;
  */
 public class MathExt
 {
-    /**
-     * @return True if the passed integer is odd.
-     * @param integer The value to test.
-     */
-    public static boolean isOdd( long integer )
-    {
-        return (integer & 1) == 1;
-    }
-
-    /**
-     * @return True if the passed integer is even.
-     * @param integer The value to test.
-     */
-    public static boolean isEven( long integer )
-    {
-        return ! isOdd( integer );
-    }
-
     /**
      * Computes the value of the polynomial with the factors from c for x.
      * The implementation uses the Horner-algorithm.
@@ -154,25 +135,7 @@ public class MathExt
         return round( Math.sqrt( cd - ad ) );
     }
 
-    /**
-     * Pythagoras is a^2 + b^2 = c^2.  This operation computes b from a and c,
-     * i.e. returns sqrt( c^2 - a^2 ).  Note that this same can be used to
-     * compute a.
-     *
-     * @param a Distance a.
-     * @param hypotenuse Distance c.
-     * @return Distance b.
-     */
-    public static double pythagorasD( double hypotenuse, double a )
-    {
-        if ( hypotenuse < a )
-            throw new IllegalArgumentException( hypotenuse + " < " + a );
 
-        double ad = a * a;
-        double cd = hypotenuse * hypotenuse;
-
-        return Math.sqrt( cd - ad );
-    }
 
     /**
      * Find the maximum of the passed numbers.
@@ -218,92 +181,7 @@ public class MathExt
         return result;
     }
 
-    /**
-     * Computes a point that has a given distance from P(0,0) and is on a line
-     * with a given angle from P.
-     *
-     * @param angle The angle of the ray.
-     * @param distance The distance of the target point.
-     * @return The target point.
-     */
-    public static Point2D pointWithDistanceFromA( float angle, float distance )
-    {
-        // Ensure that we stay in the 360 degree range.
-        angle %= 360.0f;
 
-        return pointWithDistanceFromA(
-                sector( angle ),
-                Math.tan( Math.toRadians( angle )),
-                distance );
-    }
-
-    private static int sector( float angle )
-    {
-        if ( angle > 3*90 )
-            return 3;
-        if ( angle > 2*90 )
-            return 2;
-        if ( angle > 1*90 )
-            return 1;
-
-        return 0;
-    }
-
-    private static Point2D pointWithDistanceFromA( int sector, double m, float distance )
-    {
-        double resultX;
-        double resultY;
-
-        // Check this!
-        if ( m != 0.0 )
-        {
-            double intersection = intersectLineAndCircle( m, distance );
-            resultY = intersection;
-            resultX = Math.abs( intersection / m );
-        }
-        else
-        {
-            resultX = distance;
-            resultY = 0;
-        }
-
-        switch ( sector )
-        {
-            case 0:
-                break;
-            case 1:
-                resultX = -resultX;
-                break;
-            case 2:
-                resultX = -resultX;
-                resultY = -resultY;
-                break;
-            case 3:
-                resultY = -resultY;
-                break;
-        }
-
-        return new Point2D.Double( resultX, resultY );
-    }
-
-    /**
-     *
-     * @param lineSlope
-     * @param circleRadius
-     * @return
-     */
-    private static double intersectLineAndCircle( double lineSlope, double circleRadius )
-    {
-        double radiusSquare =
-                circleRadius * circleRadius;
-        double slopeSquare =
-                lineSlope * lineSlope;
-
-        double squared =
-                radiusSquare / (1.0d + slopeSquare);
-
-        return Math.abs( lineSlope * Math.sqrt( squared ) );
-    }
 
     /**
      * Performs a discrete Fast Fourier Transform (FFT) on the passed

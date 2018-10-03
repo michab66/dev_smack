@@ -7,12 +7,11 @@
  */
 package org.jdesktop.util;
 
-import java.util.ArrayList;
+import java.lang.reflect.Constructor;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import javax.xml.namespace.QName;
+import org.jdesktop.smack.util.ReflectionUtils;
 
 /**
  * Management of ApplicationServices.
@@ -26,14 +25,14 @@ public final class ServiceManager
      * The map of singular application services.
      */
     private static final Map<Class<?>, Object> _singletons =
-            new HashMap<>();
+            new HashMap<Class<?>, Object>();
 
     /**
      * Create an instance.
      */
-    private ServiceManager()
+    public ServiceManager()
     {
-        throw new AssertionError();
+        // Catch ctor.
     }
 
     /**
@@ -45,18 +44,16 @@ public final class ServiceManager
     public static synchronized <T> T getApplicationService( Class<T> singletonType )
     {
         if ( !  _singletons.containsKey( singletonType ) )
-        {
             try
             {
                 _singletons.put(
                         singletonType,
-                        ReflectionUtil.createInstanceX( singletonType ) );
+                        singletonType.newInstance() );
             }
             catch ( Exception e )
             {
                 throw new RuntimeException( e );
             }
-        }
 
         return singletonType.cast( _singletons.get( singletonType ) );
     }
@@ -64,70 +61,37 @@ public final class ServiceManager
     /**
      * Get an application service of the specified type.
      *
-     * @param singletonInstance The application service.
+     * @param singletonType The type of the application service.
      * @return An instance of the requested service.
      */
-    public static synchronized <T> T initApplicationService( T singletonInstance )
+    public static synchronized <T> T initApplicationService(
+            Class<T> singletonType,
+            Object...objects  )
     {
-        @SuppressWarnings("unchecked")
-        Class<T> c = (Class<T>)singletonInstance.getClass();
+        if ( _singletons.containsKey(  singletonType ) )
+            throw new IllegalArgumentException( "Already initialized: " + singletonType.getName() );
 
-        return initApplicationService( c, singletonInstance );
-    }
+        Constructor<T> c = ReflectionUtils.matchConstructorArguments(
+                singletonType.getConstructors(),
+                objects );
 
-    /**
-     * Initialize an application service with a specific instance.
-     *
-     * @param clazz The service class.
-     * @param singletonInstance The instance to use. The instance has to be assignable
-     * to the passed class.
-     * @return A service instance.
-     */
-    public static synchronized <T> T initApplicationService( Class<T> clazz, T singletonInstance )
-    {
-        for ( Class<?> c : computeClassRange( clazz, singletonInstance.getClass() ) )
+        if ( c == null )
+            throw new IllegalArgumentException( "No matching constructor found." );
+
+        try
         {
-            if ( _singletons.containsKey( c ) )
-                throw new IllegalArgumentException(
-                        "Already initialized: " +
-                        _singletons.get( c ) );
+            if ( ! c.isAccessible() )
+                c.setAccessible( true );
 
-            _singletons.put( c, singletonInstance );
+            T result = c.newInstance( objects );
+
+            _singletons.put( singletonType, result );
+
+            return result;
         }
-
-        return singletonInstance;
-    }
-
-    private static List<Class<?>> computeClassRange(
-            Class<?> superclass,
-            Class<?> subclass)
-    {
-        if ( ! isSuperclass( subclass, superclass ) )
-            throw new IllegalArgumentException( "Not superclass." );
-
-        ArrayList<Class<?>> result = new ArrayList<>();
-
-        while ( true )
+        catch ( Exception e )
         {
-            result.add( subclass );
-            if ( subclass.equals( superclass ))
-                break;
-            subclass = subclass.getSuperclass();
+            throw new RuntimeException( e );
         }
-
-        return result;
-    }
-
-    private static boolean isSuperclass(
-            Class<?> subclass,
-            Class<?> superclass )
-    {
-        return superclass.isAssignableFrom( subclass );
-    }
-
-    public static void main( String[] args )
-    {
-        System.err.println( isSuperclass( Object.class, QName.class ) );
-        System.err.println( isSuperclass( QName.class, Object.class ) );
     }
 }

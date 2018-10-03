@@ -18,9 +18,7 @@ import java.util.Set;
  *
  * @version $Rev$
  * @author Michael Binz
- * @deprecated Use UtilCollection.
  */
-@Deprecated
 public class CollectionUtils
 {
     /**

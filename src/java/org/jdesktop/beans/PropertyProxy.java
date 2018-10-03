@@ -10,8 +10,7 @@ package org.jdesktop.beans;
 import java.beans.IntrospectionException;
 import java.beans.PropertyDescriptor;
 
-import org.jdesktop.util.ReflectionUtil;
-
+import org.jdesktop.smack.util.ReflectionUtils;
 
 /**
  * An instance of this class represents a property on the target object
@@ -86,7 +85,7 @@ public class PropertyProxy<T,B> implements PropertyType<T,B>
     @SuppressWarnings("unchecked")
     public T get()
     {
-        return (T)ReflectionUtil.invokeQuiet(
+        return (T)ReflectionUtils.invokeQuiet(
                 _targetProperty.getReadMethod(),
                 _targetObject );
     }
@@ -99,7 +98,7 @@ public class PropertyProxy<T,B> implements PropertyType<T,B>
     @Override
     public void set( T value )
     {
-        ReflectionUtil.invokeQuiet(
+        ReflectionUtils.invokeQuiet(
                 _targetProperty.getWriteMethod(),
                 _targetObject,
                 value );

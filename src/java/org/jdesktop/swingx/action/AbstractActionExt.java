@@ -30,11 +30,7 @@ import javax.swing.Action;
 import javax.swing.Icon;
 import javax.swing.KeyStroke;
 
-import org.jdesktop.util.StringUtil;
-
-import javafx.beans.property.SimpleBooleanProperty;
-import javafx.beans.property.adapter.JavaBeanBooleanProperty;
-import javafx.beans.property.adapter.JavaBeanBooleanPropertyBuilder;
+import org.jdesktop.smack.util.StringUtils;
 
 /**
  * Extends the concept of the Action to include toggle or group states.
@@ -44,36 +40,19 @@ import javafx.beans.property.adapter.JavaBeanBooleanPropertyBuilder;
  * allows the action to correctly configured Swing buttons. The {@link #LARGE_ICON} has also been
  * changed to correspond to {@link Action#LARGE_ICON_KEY}.
  *
- * @version $Rev$
  */
 @SuppressWarnings("serial")
 public abstract class AbstractActionExt extends AbstractAction
-    implements ItemListener
-{
-    public final SimpleBooleanProperty enabledProperty =
-            new SimpleBooleanProperty();
+    implements ItemListener {
 
     /**
-     * Prevents the binding from being garbage collected.
+     * The key for the large icon
+     * <p>
+     * As of SwingX 1.6.3 is now has the same value as {@link Action#LARGE_ICON_KEY}, which is new to 1.6.
+     * @deprecated Use Action.LARGE_ICON_KEY.
      */
-    private final JavaBeanBooleanProperty _holder;
-    {
-        enabledProperty.set( isEnabled() );
-
-        try
-        {
-            JavaBeanBooleanPropertyBuilder bb =
-                    JavaBeanBooleanPropertyBuilder.create();
-            _holder =
-                    bb.bean( this ).name( "enabled" ).build();
-            _holder.bindBidirectional(
-                    enabledProperty );
-        }
-        catch ( Exception e )
-        {
-            throw new ExceptionInInitializerError();
-        }
-    }
+    @Deprecated
+    public static final String LARGE_ICON = Action.LARGE_ICON_KEY;
 
     /**
      * The key for the button group
@@ -90,6 +69,23 @@ public abstract class AbstractActionExt extends AbstractAction
      */
     public AbstractActionExt() {
         this((String) null);
+    }
+
+    /**
+     * Copy constructor copies the state.
+     */
+    public AbstractActionExt(AbstractActionExt action) {
+        Object[] keys = action.getKeys();
+        for (int i = 0; i < keys.length; i++) {
+            putValue((String)keys[i], action.getValue((String)keys[i]));
+        }
+        this.enabled = action.enabled;
+
+        // Copy change listeners.
+        PropertyChangeListener[] listeners = action.getPropertyChangeListeners();
+        for (int i = 0; i < listeners.length; i++) {
+            addPropertyChangeListener(listeners[i]);
+        }
     }
 
     public AbstractActionExt(String name) {
@@ -120,7 +116,6 @@ public abstract class AbstractActionExt extends AbstractAction
         super(name, icon);
         setActionCommand(command);
     }
-
     /**
      * Returns a short description of the action.
      *
@@ -132,7 +127,7 @@ public abstract class AbstractActionExt extends AbstractAction
 
     /**
      * Sets the short description of the action. This will also
-     * set the long description value if it is null.
+     * set the long description value is it is null.
      * <p>
      * This is a convenience method for <code>putValue</code> with the
      * <code>Action.SHORT_DESCRIPTION</code> key.
@@ -146,27 +141,6 @@ public abstract class AbstractActionExt extends AbstractAction
         if (desc != null && getLongDescription() == null) {
             setLongDescription(desc);
         }
-    }
-
-    /**
-     * Returns the tooltip of the action.
-     * Equivalent to {@link #getShortDescription()}.
-     *
-     * @return the short description or {@code null}.
-     */
-    public String getTooltip()  {
-        return getShortDescription();
-    }
-
-    /**
-     * Sets the tooltip of the action. This will also
-     * set the long description value if it is {@code null}.
-     * Equivalent to {@link #setShortDescription(String)}.
-     *
-     * @param desc the short description; can be {@code null}.
-     */
-    public void setTooltip(String desc) {
-        setShortDescription( desc );
     }
 
     /**
@@ -220,31 +194,6 @@ public abstract class AbstractActionExt extends AbstractAction
     }
 
     /**
-     * Returns a small icon which represents the action.
-     * Equivalent to {@link #getSmallIcon()}.
-     *
-     * @return the small icon or null
-     */
-    public Icon getIcon() {
-        return getSmallIcon();
-    }
-
-    /**
-     * Sets the small icon which represents the action.
-     * Equivalent to {@link #setSmallIcon(Icon)}.
-     * <p>
-     * This is a convenience method for <code>putValue</code> with the
-     * <code>Action.SMALL_ICON</code> key.
-     *
-     * @param icon the small icon; can be <code>null</code>
-     * @see Action#SMALL_ICON
-     * @see Action#putValue
-     */
-    public void setIcon(Icon icon) {
-        setSmallIcon( icon );
-    }
-
-    /**
      * Returns a large icon which represents the action.
      *
      * @return the large icon or null
@@ -260,6 +209,7 @@ public abstract class AbstractActionExt extends AbstractAction
      * <code>LARGE_ICON</code> key.
      *
      * @param icon the large icon; can be <code>null</code>
+     * @see #LARGE_ICON
      * @see Action#putValue
      */
     public void setLargeIcon(Icon icon) {
@@ -329,7 +279,7 @@ public abstract class AbstractActionExt extends AbstractAction
     }
 
     public void setMnemonic(String mnemonic) {
-        if ( StringUtil.hasContent( mnemonic ) ) {
+        if ( StringUtils.hasContent( mnemonic ) ) {
             putValue(Action.MNEMONIC_KEY, new Integer(mnemonic.charAt(0)));
         }
     }
@@ -442,7 +392,7 @@ public abstract class AbstractActionExt extends AbstractAction
     }
 
     /**
-     * @param group Sets the group identity of the state action. This is used to
+     * Sets the group identity of the state action. This is used to
      * identify the action as part of a button group.
      */
     public void setGroup(Object group) {
